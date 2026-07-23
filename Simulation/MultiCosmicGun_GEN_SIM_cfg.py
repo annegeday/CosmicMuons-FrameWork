@@ -25,8 +25,12 @@ process.load('Configuration.StandardSequences.SimNOBEAM_cff')
 process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
+# Basic simulation settings
+nGenMuons = 5
+nEvents = 1000
+
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(100),
+    input = cms.untracked.int32(nEvents),
     output = cms.optional.untracked.allowed(cms.int32,cms.PSet)
 )
 
@@ -100,13 +104,13 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase1_2025_cosmics', '')
 process.generator = cms.EDProducer("FlatRandomPtGunProducer",
     AddAntiParticle = cms.bool(False),
     PGunParameters = cms.PSet(
-        MaxEta = cms.double(2.5),
-        MaxPhi = cms.double(0.0),
+        MaxEta = cms.double(0.01),
+        MaxPhi = cms.double(-1.58),
         MaxPt = cms.double(3000.0),
-        MinEta = cms.double(-2.5),
-        MinPhi = cms.double(-3.141592653589793),
-        MinPt = cms.double(10.0),
-        PartID = cms.vint32(13, 13, 13, 13, 13, 13, 13, 13)
+        MinEta = cms.double(-0.01),
+        MinPhi = cms.double(-1.56),
+        MinPt = cms.double(100.0),
+        PartID = cms.vint32([13]*nGenMuons)
     ),
     Verbosity = cms.untracked.int32(0)
 )
