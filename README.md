@@ -197,14 +197,25 @@ Note that some modifications will be needed to include the generated particles t
 ## Directory structure and select file descriptions (WIP)
 DataSegment_AOD/
 * CosmicPPreco_RAW2DIGI_RECO.py:
-     --> Locates specified Cosmic runs from eos/cms/store/data/... (which do not contain segment data) and generates AOD files including segment data.
-     --> Outputs "CosmicPPreco_RAW2DIGI_RECO.root"
+     --> Takes raw cosmic data files and generates AOD files including segment data.
+     --> Input params
+              FileString: Path to raw data file in string format (Don't forget file: for a local file).
+              MaxEvts: Number of events from the selected file(s), that you'd like to process.
+              numCore: Number of cores allocated for job. Standard is 1 (2 for a crab job).
+     --> Output: AOD file with name "CosmicPPreco_RAW2DIGI_RECO.root" in working directory. 
 * crab_CosmicPPreco.py:
      --> Submits job to crab in order to process many data files.
+     --> Selected input params
+              config.JobType.numCores: **Must** match numCores in CosmicPPreco_RAW2DIGI_RECO.py.
+              config.JobType.maxMemoryMB: Memory allocated, depends on number of cores (1 core: 2500-3000)
+              config.Data.outLFNDirBase: Placement of output directory
+              config.Data.outputDatasetTag: Name of output directory
+              config.Data.inputDataset: DAS dataset name
+     --> Output: AOD files with names "CosmicPPreco_RAW2DIGI_RECO_{JOB-NUMBER}.root" in generated output directory.
 
 Simulation/
 * MultiCosmicGun_GEN_SIM_cfg.py:
-     --> Simulates cosmic muons by "shooting" them towards the detector from above.
+     --> Simulates cosmic muon showers by generating them above the detector with momentum going towards the detector. Each muon is generated with a random origin along the  axis parallel to the beamline. The direction of the shower is determined by Max/Min eta.  
      --> Outputs GEN-SIM_MultiCosmic.root
 * GEN_SIM_to_AOD_cfg.py
      --> Takes simulated muons and generates "data-like" AOD files.
