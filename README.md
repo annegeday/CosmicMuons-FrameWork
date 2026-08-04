@@ -216,14 +216,28 @@ DataSegment_AOD/
 Simulation/
 * MultiCosmicGun_GEN_SIM_cfg.py:
      --> Simulates cosmic muon showers by generating them above the detector with momentum going towards the detector. Each muon is generated with a random origin along the  axis parallel to the beamline. The direction of the shower is determined by Max/Min eta.  
-     --> Outputs GEN-SIM_MultiCosmic.root
+  --> Input params
+          nGenMuons: Number of muons generated per event/muons in the shower
+          nEvents: Number of events generated
+          EtaMid: The "median" direction of the muons (middle of the range)
+          ShowerHalfWidth: The allowed deviation of muon direction from EtaMid
+  --> Outputs GEN-SIM_MultiCosmic.root in working directory
 * GEN_SIM_to_AOD_cfg.py
-     --> Takes simulated muons and generates "data-like" AOD files.
-     --> Outputs AODSIM.root
+     --> Takes file containing simulated muons and generates "data-like" AOD files.
+     --> Pulls file named GEN-SIM_MultiCosmic.root from working directory
+     --> Outputs AODSIM.root in working directory
+* RecoGen_Matching.py
+     --> Takes Ntuplizer output file for simulated muons and matches generated and reconstructed muons via their Lorentz vector. Simulated muons are 1-to-1 paired with their closest match, provided their Eucledian distance is below a predetermined threshold. 
+     --> Input params
+          dR_max: Threshold for a match
+          Input file: Default is ntuples.root in working directory 
+     --> Outputs a root file containing a TTree. Default output file is ntuplesMatched.root in working directory
+     --> To specify input and output path, add these when calling the script: python3 RecoGen_Matching.py InputFile OutputFile
+* condor/
 
 Ntuplizer/
 * test/Cosmics_runNtuplizer_AOD_cfg.py
-     --> Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) initially generated.
-     --> Outputs ntuples.root **(Final file ready for analysis)**
+     --> Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
+     --> Outputs ntuples.root
 * test/condor/
 * test/crab/
