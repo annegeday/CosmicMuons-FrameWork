@@ -197,47 +197,47 @@ Note that some modifications will be needed to include the generated particles t
 ## Directory structure and select file descriptions (WIP)
 DataSegment_AOD/
 * CosmicPPreco_RAW2DIGI_RECO.py:
-     --> Takes raw cosmic data files and generates AOD files including segment data.
-     --> Input params
-              FileString: Path to raw data file in string format (Don't forget file: for a local file).
-              MaxEvts: Number of events from the selected file(s), that you'd like to process.
-              numCore: Number of cores allocated for job. Standard is 1 (2 for a crab job).
-     --> Output: AOD file with name "CosmicPPreco_RAW2DIGI_RECO.root" in working directory. 
+  + Takes raw cosmic data files and generates AOD files including segment data.
+  + Input params
+    - FileString: Path to raw data file in string format (Don't forget file: for a local file).
+    - MaxEvts: Number of events from the selected file(s), that you'd like to process.
+    - numCore: Number of cores allocated for job. Standard is 1 (2 for a crab job).
+  + Output: AOD file with name "CosmicPPreco_RAW2DIGI_RECO.root" in working directory. 
 * crab_CosmicPPreco.py:
-     --> Submits job to crab in order to process many data files.
-     --> Selected input params
-              config.JobType.numCores: **Must** match numCores in CosmicPPreco_RAW2DIGI_RECO.py.
-              config.JobType.maxMemoryMB: Memory allocated, depends on number of cores (1 core: 2500-3000)
-              config.Data.outLFNDirBase: Placement of output directory
-              config.Data.outputDatasetTag: Name of output directory
-              config.Data.inputDataset: DAS dataset name
-     --> Output: AOD files with names "CosmicPPreco_RAW2DIGI_RECO_{JOB-NUMBER}.root" in generated output directory.
+  + Submits job to crab in order to process many data files.
+  + Selected input params
+    - config.JobType.numCores: **Must** match numCores in CosmicPPreco_RAW2DIGI_RECO.py.
+    - config.JobType.maxMemoryMB: Memory allocated, depends on number of cores (1 core: 2500-3000)
+    - config.Data.outLFNDirBase: Placement of output directory
+    - config.Data.outputDatasetTag: Name of output directory
+    - config.Data.inputDataset: DAS dataset name
+  + Output: AOD files with names "CosmicPPreco_RAW2DIGI_RECO_{JOB-NUMBER}.root" in generated output directory.
 
 Simulation/
 * MultiCosmicGun_GEN_SIM_cfg.py:
-     --> Simulates cosmic muon showers by generating them above the detector with momentum going towards the detector. Each muon is generated with a random origin along the  axis parallel to the beamline. The direction of the shower is determined by Max/Min eta.  
-  --> Input params
-          nGenMuons: Number of muons generated per event/muons in the shower
-          nEvents: Number of events generated
-          EtaMid: The "median" direction of the muons (middle of the range)
-          ShowerHalfWidth: The allowed deviation of muon direction from EtaMid
-  --> Outputs GEN-SIM_MultiCosmic.root in working directory
+  + Simulates cosmic muon showers by generating them above the detector with momentum going towards the detector. Each muon is generated with a random origin along the  axis parallel to the beamline. The direction of the shower is determined by Max/Min eta.
+  + Input params
+    - nGenMuons: Number of muons generated per event/muons in the shower
+    - nEvents: Number of events generated
+    - EtaMid: The "median" direction of the muons (middle of the range)
+    - ShowerHalfWidth: The allowed deviation of muon direction from EtaMid
+  + Outputs GEN-SIM_MultiCosmic.root in working directory
 * GEN_SIM_to_AOD_cfg.py
-     --> Takes file containing simulated muons and generates "data-like" AOD files.
-     --> Pulls file named GEN-SIM_MultiCosmic.root from working directory
-     --> Outputs AODSIM.root in working directory
+  + Takes file containing simulated muons and generates "data-like" AOD files.
+  + Pulls file named GEN-SIM_MultiCosmic.root from working directory
+  + Outputs AODSIM.root in working directory
 * RecoGen_Matching.py
-     --> Takes Ntuplizer output file for simulated muons and matches generated and reconstructed muons via their Lorentz vector. Simulated muons are 1-to-1 paired with their closest match, provided their Eucledian distance is below a predetermined threshold. 
-     --> Input params
-          dR_max: Threshold for a match
-          Input file: Default is ntuples.root in working directory 
-     --> Outputs a root file containing a TTree. Default output file is ntuplesMatched.root in working directory
-     --> To specify input and output path, add these when calling the script: python3 RecoGen_Matching.py InputFile OutputFile
+  + Takes Ntuplizer output file for simulated muons and matches generated and reconstructed muons via their Lorentz vector. Simulated muons are 1-to-1 paired with their closest match, provided their Eucledian distance is below a predetermined threshold.
+  + Input params
+    - dR_max: Threshold for a match
+    - Input file: Default is ntuples.root in working directory 
+  + Outputs a root file containing a TTree. Default output file is ntuplesMatched.root in working directory
+  + To specify input and output path, add these when calling the script: `python3 RecoGen_Matching.py {InputFile} {OutputFile}`
 * condor/
 
 Ntuplizer/
 * test/Cosmics_runNtuplizer_AOD_cfg.py
-     --> Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
-     --> Outputs ntuples.root
+  + Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
+  + Outputs ntuples.root
 * test/condor/
 * test/crab/
