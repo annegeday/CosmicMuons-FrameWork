@@ -257,10 +257,10 @@ Simulation/
     - Configuration options: .txt file path
 
 Ntuplizer/
-* test/Cosmics_runNtuplizer_AOD_cfg.py
+* Cosmics_runNtuplizer_AOD_cfg.py
   + Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
   + Outputs ntuples.root
-* test/condor
+* condor/
   + Cosmics_runNtuplizer_AOD_cfg.py
     - Version of the Ntuplizer for condor (feeds from plugin/MuonNtupleProducer just like the non-condor Ntuplizer)
   + prepare_files.py
