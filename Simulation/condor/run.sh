@@ -1,10 +1,6 @@
 #!/bin/sh
-export X509_USER_PROXY=/afs/cern.ch/user/a/aovergaa/.x509up_196026.
-voms-proxy-info
-export VO_CMS_SW_DIR=/cvmfs/cms.cern.ch
-source $VO_CMS_SW_DIR/cmsset_default.sh
 
-cd /eos/user/a/aovergaa/SummerStudent_Project/CMSSW_15_0_5/src/CosmicMuons-FrameWork/Simulation/condor
+cd /eos/user/a/aovergaa/SummerStudent_Project/CMSSW_15_0_5/src/CosmicMuons-FrameWork/Simulation/
 cmsenv
 
 NMUONS=$1
@@ -14,8 +10,8 @@ NEVENTS=$2
 CLUSTER=$3
 PROCESS=$4
 
-GENSIM_FILE=GEN-SIM_nMuons${NMUONS}_${CLUSTER}_${PROCESS}.root
-AOD_FILE=AODSIM_nMuons${NMUONS}_${CLUSTER}_${PROCESS}.root
+GENSIM_FILE=condor/GEN-SIM_nMuons${NMUONS}_${CLUSTER}_${PROCESS}.root
+AOD_FILE=condor/AODSIM_nMuons${NMUONS}_${CLUSTER}_${PROCESS}.root
 
 echo "Step 1/2: GEN,SIM with nMuons=${NMUONS}, nEvents=${NEVENTS}"
 cmsRun MultiCosmicGun_GEN_SIM_cfg.py nMuons=${NMUONS} nEvents=${NEVENTS} output=${GENSIM_FILE}

@@ -9,6 +9,10 @@ from Configuration.Eras.Era_Run3_cff import Run3
 
 process = cms.Process('RECO',Run3)
 
+FileString='/store/data/Commissioning2025/Cosmics/RAW/v1/000/389/640/00000/421f22c5-da7b-4ef9-9aee-88a99c51e16d.root'
+MaxEvts=-1
+numCore=1
+
 # import of standard configurations
 process.load('Configuration.StandardSequences.Services_cff')
 process.load('SimGeneral.HepPDTESSource.pythiapdt_cfi')
@@ -22,13 +26,13 @@ process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(100),
+    input = cms.untracked.int32(MaxEvts),
     output = cms.optional.untracked.allowed(cms.int32,cms.PSet)
 )
 
 # Input source
 process.source = cms.Source("PoolSource",
-    fileNames = cms.untracked.vstring('/store/data/Run2024C/Cosmics/RAW/v1/000/379/417/00000/022b1b63-e126-4800-be9a-cbd752664a95.root'),
+    fileNames = cms.untracked.vstring(fileString),
     secondaryFileNames = cms.untracked.vstring()
 )
 
@@ -57,7 +61,7 @@ process.options = cms.untracked.PSet(
     numberOfConcurrentLuminosityBlocks = cms.untracked.uint32(0),
     numberOfConcurrentRuns = cms.untracked.uint32(1),
     numberOfStreams = cms.untracked.uint32(0),
-    numberOfThreads = cms.untracked.uint32(1),
+    numberOfThreads = cms.untracked.uint32(numCore),
     printDependencies = cms.untracked.bool(False),
     sizeOfStackForThreadsInKB = cms.optional.untracked.uint32,
     throwIfIllegalParameter = cms.untracked.bool(True),

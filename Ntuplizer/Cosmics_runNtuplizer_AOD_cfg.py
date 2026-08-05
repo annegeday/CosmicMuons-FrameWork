@@ -14,7 +14,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, "150X_dataRun3_Prompt_v1", "") 
 # Source
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
-        'file:AODSIM.root'
+        'file:/eos/user/a/aovergaa/SummerStudent_Project/CMSSW_15_0_5/src/CosmicMuons-FrameWork/Simulation/output/sim_v1/AODSIM.root'
         #'file:6ddf0cc8-31e6-4714-b3de-f521348e9b7f.root'
         #'file:14cbfe49-ca4a-4d65-aa56-d349ba6415a0.root', #RAW-RECO
         #'file:63cb89d6-f6e8-4ab8-b7df-178bad21884e.root', # annabela

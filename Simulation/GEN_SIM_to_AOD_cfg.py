@@ -4,8 +4,37 @@
 # Source: /local/reps/CMSSW/CMSSW/Configuration/Applications/python/ConfigBuilder.py,v 
 # with command line options: step2 --filein file:GEN-SIM_MultiCosmic.root --fileout file:AODSIM.root --mc --eventcontent AOD --datatier AOD --conditions auto:phase1_2025_cosmics --scenario cosmics --step DIGI,L1,DIGI2RAW,HLT,RAW2DIGI,L1Reco,RECO,RECOSIM --geometry DB:Extended --era Run3 -n -1 --python_filename GEN_SIM_to_AOD_cfg.py --no_exec
 import FWCore.ParameterSet.Config as cms
+import FWCore.ParameterSet.VarParsing as VarParsing
 
 from Configuration.Eras.Era_Run3_cff import Run3
+
+# ---- Parser configuration ---- #
+
+options = VarParsing.VarParsing('analysis')
+
+options.register('input',
+                 'GEN-SIM_MultiCosmic.root',
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.string,
+                 "Input GEN-SIM file")
+
+options.register('output',
+                 'AODSIM.root',
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.string,
+                 "Output AODSIM file")
+
+options.parseArguments()
+
+in_file = options.input
+out_file = options.output
+
+# ---- Print start message ---- #
+
+print(f"... Reading input from: {in_file}")
+print(f"... Writing output to: {out_file}")
+
+# ---- Process ---- #
 
 process = cms.Process('HLT',Run3)
 
@@ -36,7 +65,7 @@ process.maxEvents = cms.untracked.PSet(
 # Input source
 process.source = cms.Source("PoolSource",
     dropDescendantsOfDroppedBranches = cms.untracked.bool(False),
-    fileNames = cms.untracked.vstring('file:GEN-SIM_MultiCosmic.root'),
+    fileNames = cms.untracked.vstring(f'file:{in_file}'),
     inputCommands = cms.untracked.vstring(
         'keep *',
        # 'drop *_genParticles_*_*',
@@ -106,7 +135,7 @@ process.AODoutput = cms.OutputModule("PoolOutputModule",
         filterName = cms.untracked.string('')
     ),
     eventAutoFlushCompressedSize = cms.untracked.int32(15728640),
-    fileName = cms.untracked.string('file:AODSIM.root'),
+    fileName = cms.untracked.string(f'file:{out_file}'),
     outputCommands = process.AODEventContent.outputCommands
 )
 
