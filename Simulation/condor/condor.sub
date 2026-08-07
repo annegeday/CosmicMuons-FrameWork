@@ -1,0 +1,8 @@
+universe    = vanilla
+executable  = run.sh
+arguments   = $(nMuons) $(nEvents) $(Cluster) $(Process)
+output      = logs/job_$(nMuons)_$(Cluster)_$(Process).out
+error       = logs/job_$(nMuons)_$(Cluster)_$(Process).err
+log         = logs/job_$(nMuons)_$(Cluster)_$(Process).log
++JobFlavour = "workday"
+queue nMuons,nEvents from sim_input.txt

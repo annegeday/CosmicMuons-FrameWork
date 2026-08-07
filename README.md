@@ -194,25 +194,83 @@ Now one can feed FireWorks with the AOD output file, make the flat ntuples, etc.
 
 Note that some modifications will be needed to include the generated particles truth information in the flat ntuples, i.e., read the `genParticles` collection, loop over the elements, store in new output branches the kinematic information from the muons. This is a good exercise for homework. In case it helps, I used to read that collection in the past for another project. The code logic behind is different as I was geometrically matching gen and reco muons, but some parts of the code can be taken as a benchmark: https://github.com/fmanteca/HighPt_DNN/tree/master/MyAnalysis/RECOAnalysis
 
-## Directory structure and select file descriptions (WIP)
+## Directory structure and select file descriptions
+
 DataSegment_AOD/
 * CosmicPPreco_RAW2DIGI_RECO.py:
-     --> Locates specified Cosmic runs from eos/cms/store/data/... (which do not contain segment data) and generates AOD files including segment data.
-     --> Outputs "CosmicPPreco_RAW2DIGI_RECO.root"
+  + Takes raw cosmic data files and generates AOD files including segment data.
+  + Configuration options: 
+    - FileString: Path to raw data file in string format (Don't forget file: for a local file).
+    - MaxEvts: Number of events from the selected file(s), that you'd like to process.
+    - numCore: Number of cores allocated for job. Standard is 1 (2 for a crab job).
+  + Output: AOD file with name "CosmicPPreco_RAW2DIGI_RECO.root" in working directory. 
 * crab_CosmicPPreco.py:
-     --> Submits job to crab in order to process many data files.
+  + Submits job to crab in order to process many data files.
+  + Configuration options: 
+    - config.JobType.numCores: **Must** match numCores in CosmicPPreco_RAW2DIGI_RECO.py.
+    - config.JobType.maxMemoryMB: Memory allocated, depends on number of cores (1 core: 2500-3000)
+    - config.Data.outLFNDirBase: Placement of output directory
+    - config.Data.outputDatasetTag: Name of output directory
+    - config.Data.inputDataset: DAS dataset name (for txt list of datafiles, use userInputFiles and outputPrimaryDataset options instead)
+  + Output: AOD files with names "CosmicPPreco_RAW2DIGI_RECO_{JOB-NUMBER}.root" in generated output directory.
 
 Simulation/
 * MultiCosmicGun_GEN_SIM_cfg.py:
-     --> Simulates cosmic muons by "shooting" them towards the detector from above.
-     --> Outputs GEN-SIM_MultiCosmic.root
+  + Simulates cosmic muon showers by generating them above the detector with momentum going towards the detector. Each muon is generated with a random origin along the  axis parallel to the beamline. The direction of the shower is determined by Max/Min eta.
+  + Input params
+    - nMuons: Number of muons generated per event/muons in the shower. No default, **Must** be specified when calling the script, ex: `cmsRun MultiCosmicGun_GEN_SIM_cfg.py nMuons=5`
+    - nEvents: Number of events generated. Default is 1000.
+    - output: Path for output file. Default is 'GEN-SIM_MultiCosmic.root'.
+  + Shower settings
+    - EtaMid: The "median" direction of the muons (middle of the range).
+    - ShowerHalfWidth: The allowed deviation of muon direction from EtaMid.
+  + Outputs root file in accordance with output path.
 * GEN_SIM_to_AOD_cfg.py
-     --> Takes simulated muons and generates "data-like" AOD files.
-     --> Outputs AODSIM.root
+  + Takes file containing simulated muons and generates "data-like" AOD files.
+  + Input params
+    - input: Path for input file. Default is 'GEN-SIM_MultiCosmic.root'.
+    - output: Path for output file. Default is 'AODSIM.root'.
+  + Outputs AOD root file in accordance with output path.
+* RecoGen_Matching.py
+  + Takes Ntuplizer output file for simulated muons and matches generated and reconstructed muons via their Lorentz vector. Simulated muons are 1-to-1 paired with their closest match, provided their Eucledian distance is below a predetermined threshold.
+  + Configuration options
+    - dR_max: Threshold for a match
+  + Input params
+    - Input file path. Default is ntuples.root in working directory.
+    - Output file path. Default is ntuplesMatched.root in working directory.
+    - To specify input and output path, add these when calling the script: `python3 RecoGen_Matching.py {InputFile} {OutputFile}`
+  + Outputs a root file containing a TTree in accordance with output path. 
+* condor/
+  + prepare_sim_input.py
+    - Creates text file with nMuons,nEvents
+    - Configuration options
+          nMuons_list: List with nMuons for each desired job.
+          output_txt_file: txt output path.
+          nEvents_constant: Set true if each job should have the same number of events.
+          nEvents: Number of events per job (if nEvents_constant = True).
+          nEvents_list: List with number of events for each job. Job index should match with nMuons_list (if nEvents_constant = False).
+  + run.sh
+    - Shell script to cd to working directory, ensure safe file names and call both simulation scripts, one after the other.
+    - Configuration options: working directory
+  + condor.sub
+    - Submits the condor job following the shell script when called ´condor_submit condor.sub´
+    - Configuration options: .txt file path
 
 Ntuplizer/
-* test/Cosmics_runNtuplizer_AOD_cfg.py
-     --> Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) initially generated.
-     --> Outputs ntuples.root **(Final file ready for analysis)**
-* test/condor/
-* test/crab/
+* Cosmics_runNtuplizer_AOD_cfg.py
+  + Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
+  + Outputs ntuples.root
+* condor/
+  + Cosmics_runNtuplizer_AOD_cfg.py
+    - Version of the Ntuplizer for condor (feeds from plugin/MuonNtupleProducer just like the non-condor Ntuplizer)
+  + prepare_files.py
+    - Takes dataset path(s) and generates a .txt file with all the corresponding file names, 1 per line.
+    - Input: dataset path(s)
+    - Output: 'files.txt' in output base 
+  + run.sh
+    - Shell script to access grid proxy, find condor working directory and start job
+    - Configuration options: X509_USER_PROXY and working directory
+  + condor.sub
+    - Submits the condor job following the shell script when called ´condor_submit condor.sub´
+    - Configuration options: .txt file path
+

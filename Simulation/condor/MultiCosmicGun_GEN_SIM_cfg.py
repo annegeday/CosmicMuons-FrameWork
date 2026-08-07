@@ -4,8 +4,52 @@
 # Source: /local/reps/CMSSW/CMSSW/Configuration/Applications/python/ConfigBuilder.py,v 
 # with command line options: MultiCosmicGun_cfi --fileout file:GEN-SIM_MultiCosmic.root --mc --eventcontent RAWSIM --datatier GEN-SIM --conditions auto:phase1_2025_cosmics --beamspot NoVertexSmear --scenario cosmics --step GEN,SIM --geometry DB:Extended --era Run3 -n 100 --python_filename MultiCosmicGun_GEN_SIM_cfg.py --no_exec
 import FWCore.ParameterSet.Config as cms
+import FWCore.ParameterSet.VarParsing as VarParsing #necessary for input options
+import sys
 
 from Configuration.Eras.Era_Run3_cff import Run3
+
+# ----  Parser Configuration ---- #
+
+options = VarParsing.VarParsing('analysis')
+
+# define input and set no default values for nMuons
+options.register('nMuons',
+                 '-1',
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.int,
+                 "Number of muons generated per event")
+
+options.register('nEvents',
+                 '1000',
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.int,
+                 "Number of events to generate")
+
+options.register('output',
+                 'GEN-SIM_MultiCosmic.root',
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.string,
+                 "Output GEN-SIM file")
+
+options.parseArguments()
+
+# force the user to provide non default argument via terminal
+if options.nMuons < 0:
+    print("\n[ERROR] Missing (valid) arguments. You MUST provide (positive values for) 'nMuons'. ")
+    print("Example: cmsRun MultiCosmicGun_GEN_SIM_cfg.py nMuons = int ")
+    sys.exit(1)
+
+# ensure local files are correctly referenced
+
+out_file = options.output.replace('file:', '')
+
+# ----  Print start message ---- #
+
+print(f"... Generating {options.nEvents} events with {options.nMuons} muons/event")
+print(f"... Writing output to: {out_file}")
+
+# ---- Configure process ---- #
 
 process = cms.Process('SIM',Run3)
 
@@ -26,11 +70,10 @@ process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 # Basic simulation settings
-nGenMuons = 5
-nEvents = 1000
+nGenMuons = options.nMuons
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(nEvents),
+    input = cms.untracked.int32(options.nEvents),
     output = cms.optional.untracked.allowed(cms.int32,cms.PSet)
 )
 
@@ -77,7 +120,6 @@ process.configurationMetadata = cms.untracked.PSet(
 )
 
 # Output definition
-
 process.RAWSIMoutput = cms.OutputModule("PoolOutputModule",
     SelectEvents = cms.untracked.PSet(
         SelectEvents = cms.vstring('generation_step')
@@ -87,7 +129,7 @@ process.RAWSIMoutput = cms.OutputModule("PoolOutputModule",
         filterName = cms.untracked.string('')
     ),
     eventAutoFlushCompressedSize = cms.untracked.int32(5242880),
-    fileName = cms.untracked.string('file:GEN-SIM_MultiCosmic.root'),
+    fileName = cms.untracked.string(f'file:{out_file}'),
     outputCommands = process.RAWSIMEventContent.outputCommands,
     splitLevel = cms.untracked.int32(0)
 )
