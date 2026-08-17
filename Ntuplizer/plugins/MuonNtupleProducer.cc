@@ -31,6 +31,9 @@
 #include "TTree.h"
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h" //Info about the generated particle
+#include "DataFormats/DTRecHit/interface/DTRecHitCollection.h" //Raw DT 1D rechits (dt1DRecHits, kept in AOD)
+#include "DataFormats/CSCRecHit/interface/CSCRecHit2DCollection.h" //Raw CSC 2D rechits (csc2DRecHits, kept in AOD)
+
 
 //reco::Muon class: https://github.com/cms-sw/cmssw/blob/master/DataFormats/MuonReco/interface/Muon.h
 //Muon POG selections & definitions: https://github.com/cms-sw/cmssw/blob/master/DataFormats/MuonReco/src/MuonSelectors.cc
@@ -50,6 +53,8 @@ private:
   edm::EDGetTokenT<std::vector<reco::Muon>> muonsToken_;
   edm::EDGetTokenT<DTRecSegment4DCollection> dtSegmentsToken_;
   edm::EDGetTokenT<CSCSegmentCollection> cscSegmentsToken_;
+  edm::EDGetTokenT<DTRecHitCollection> dtRecHitsToken_; // All particle DT hits
+  edm::EDGetTokenT<CSCRecHit2DCollection> cscRecHitsToken_; // All particle CSC hits
   edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> magneticFieldToken_;
   edm::EDGetTokenT<edm::View<reco::GenParticle> > theGenParticleCollection;
   edm::ParameterSet parameters;
@@ -59,7 +64,7 @@ private:
   TFile *file_;
   std::string output_filename;
   
-  static const int MAX = 1000;
+  static const int MAX = 10000;
 
   // Event-level info
   unsigned int run_, lumi_, event_;
@@ -85,6 +90,12 @@ private:
   int nGenMuons_;
   float genMuonPt_[MAX], genMuonEta_[MAX], genMuonPhi_[MAX];
 
+
+  // Pre-segment hits 
+  int nRecHit_;
+  int RecHit_isDT_[MAX], RecHit_isCSC_[MAX], RecHit_DTstation_[MAX], RecHit_CSCstation_[MAX];
+  float RecHit_x_[MAX], RecHit_y_[MAX], RecHit_z_[MAX];
+ 
 };
 
 MuonNtupleProducer::MuonNtupleProducer(const edm::ParameterSet& iConfig) {
@@ -92,6 +103,8 @@ MuonNtupleProducer::MuonNtupleProducer(const edm::ParameterSet& iConfig) {
   muonsToken_ = consumes<std::vector<reco::Muon>>(iConfig.getParameter<edm::InputTag>("muons"));
   dtSegmentsToken_ = consumes<DTRecSegment4DCollection>(iConfig.getParameter<edm::InputTag>("segmentsDt"));
   cscSegmentsToken_ = consumes<CSCSegmentCollection>(iConfig.getParameter<edm::InputTag>("segmentsCSC"));
+  dtRecHitsToken_ = consumes<DTRecHitCollection>(iConfig.getParameter<edm::InputTag>("recHitsDt"));
+  cscRecHitsToken_ = consumes<CSCRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("recHitsCSC"));
   magneticFieldToken_ = esConsumes<MagneticField, IdealMagneticFieldRecord>();
   
   parameters = iConfig;
@@ -164,6 +177,16 @@ void MuonNtupleProducer::beginJob() {
   tree_->Branch("genMuonEta", genMuonEta_, "genMuonEta[nGenMuons]/F");
   tree_->Branch("genMuonPhi", genMuonPhi_, "genMuonPhi[nGenMuons]/F");
 
+  // Raw RecHit branches
+  tree_->Branch("nRecHit", &nRecHit_, "nRecHit/I");
+  tree_->Branch("RecHit_isDT", RecHit_isDT_, "RecHit_isDT[nRecHit]/I");
+  tree_->Branch("RecHit_DTstation", RecHit_DTstation_, "RecHit_DTstation[nRecHit]/I");
+  tree_->Branch("RecHit_isCSC", RecHit_isCSC_, "RecHit_isCSC[nRecHit]/I");
+  tree_->Branch("RecHit_CSCstation", RecHit_CSCstation_, "RecHit_CSCstation[nRecHit]/I");
+  tree_->Branch("RecHit_x", RecHit_x_, "RecHit_x[nRecHit]/F");
+  tree_->Branch("RecHit_y", RecHit_y_, "RecHit_y[nRecHit]/F");
+  tree_->Branch("RecHit_z", RecHit_z_, "RecHit_z[nRecHit]/F");
+
 }
 void MuonNtupleProducer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup){
 
@@ -185,6 +208,7 @@ void MuonNtupleProducer::analyze(const edm::Event& iEvent, const edm::EventSetup
   nMuons_ = 0;
   nSeg_ = 0;
   nGenMuons_ = 0;
+  nRecHit_ = 0;
 
   edm::Handle<std::vector<reco::Muon>> muons;
   iEvent.getByToken(muonsToken_, muons);
@@ -193,7 +217,12 @@ void MuonNtupleProducer::analyze(const edm::Event& iEvent, const edm::EventSetup
   iEvent.getByToken(dtSegmentsToken_, dtSegments);
   edm::Handle<CSCSegmentCollection> cscSegments;
   iEvent.getByToken(cscSegmentsToken_, cscSegments);
-  
+ 
+  edm::Handle<DTRecHitCollection> dtRecHits;
+  iEvent.getByToken(dtRecHitsToken_, dtRecHits);
+  edm::Handle<CSCRecHit2DCollection> cscRecHits;
+  iEvent.getByToken(cscRecHitsToken_, cscRecHits);
+
   edm::Handle<edm::View<reco::GenParticle> > genparticles;
   iEvent.getByToken(theGenParticleCollection, genparticles);
 
@@ -302,6 +331,7 @@ void MuonNtupleProducer::analyze(const edm::Event& iEvent, const edm::EventSetup
 
 
   for (auto it = DetAllSegmentsMap.begin(); it != DetAllSegmentsMap.end(); ++it) {
+    if (nSeg_ >= MAX) break;
     const GeomDet* geom = it->first;
     const auto& segVec  = it->second;
     for (size_t i = 0; i < segVec.size(); ++i) {
@@ -341,6 +371,48 @@ void MuonNtupleProducer::analyze(const edm::Event& iEvent, const edm::EventSetup
       ++nSeg_;
      }
   }
+
+// Loop over raw DT 1D rechits (pre-segment-building)
+  if (dtRecHits.isValid()) {
+    for (auto itHit = dtRecHits->begin(); itHit != dtRecHits->end(); ++itHit) {
+      if (nRecHit_ >= MAX) break;
+      DetId myDet = itHit->geographicalId();
+      const GeomDet *geomDet = theService->trackingGeometry()->idToDet(myDet);
+      if (!geomDet) continue;
+      GlobalPoint gp = geomDet->surface().toGlobal(itHit->localPosition());
+      DTWireId id(myDet.rawId());
+      RecHit_isDT_[nRecHit_] = 1;
+      RecHit_isCSC_[nRecHit_] = 0;
+      RecHit_DTstation_[nRecHit_] = id.station();
+      RecHit_CSCstation_[nRecHit_] = -9999;
+      RecHit_x_[nRecHit_] = gp.x();
+      RecHit_y_[nRecHit_] = gp.y();
+      RecHit_z_[nRecHit_] = gp.z();
+      ++nRecHit_;
+    }
+  }
+ 
+  // Loop over raw CSC 2D rechits (pre-segment-building).
+  if (cscRecHits.isValid()) {
+    for (auto itHit = cscRecHits->begin(); itHit != cscRecHits->end(); ++itHit) {
+      if (nRecHit_ >= MAX) break;
+      DetId myDet = itHit->geographicalId();
+      const GeomDet *geomDet = theService->trackingGeometry()->idToDet(myDet);
+      if (!geomDet) continue;
+      GlobalPoint gp = geomDet->surface().toGlobal(itHit->localPosition());
+      CSCDetId id(myDet.rawId());
+      RecHit_isDT_[nRecHit_] = 0;
+      RecHit_isCSC_[nRecHit_] = 1;
+      RecHit_DTstation_[nRecHit_] = -9999;
+      RecHit_CSCstation_[nRecHit_] = id.station();
+      RecHit_x_[nRecHit_] = gp.x();
+      RecHit_y_[nRecHit_] = gp.y();
+      RecHit_z_[nRecHit_] = gp.z();
+      ++nRecHit_;
+    }
+  }
+ 
+
 
   if (nMuons_ > 0 || nGenMuons_ > 0) {
     // Fill the TTree if there is at least one reco::Muon or simulated muon in the event

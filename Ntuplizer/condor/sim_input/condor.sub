@@ -1,0 +1,8 @@
+universe    = vanilla
+executable  = run.sh
+arguments   = $(nMuons) $(Cluster) $(Process)
+output      = logs/ntup_$(Cluster)_$(Process).out
+error       = logs/ntup_$(Cluster)_$(Process).err
+log         = logs/ntup_$(Cluster)_$(Process).log
++JobFlavour = "workday"
+queue nMuons from nMuons_lineSep.txt

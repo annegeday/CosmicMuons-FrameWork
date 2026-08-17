@@ -1,11 +1,11 @@
 # Your choice of number of muons + events
 
-nMuons_list = [1, 2, 3]
+nMuons_list = [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 100]
 output_txt_file = 'sim_input.txt'
 
 nEvents_constant = True #set this to false if you want different number of events per simulation run
 
-nEvents = 50
+nEvents = 2000
 nEvents_list = [1000, 1000, 1000, 200, 200, 50] # indices should match nMuons_list
 
 
