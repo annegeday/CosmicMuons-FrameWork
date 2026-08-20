@@ -9,8 +9,8 @@ import sys
 
 from Configuration.Eras.Era_Run3_cff import Run3
 
-#Shower settings 
-EtaMid = 0.17
+# Shower settings
+MaxZenithAngle = 1.047   # ~60 degrees 
 ShowerHalfWidth = 0.04
 
 # ----  Parser Configuration ---- #
@@ -25,7 +25,7 @@ options.register('nMuons',
                  "Number of muons generated per event")
 
 options.register('nEvents',
-                 '1000',
+                 1000,
                  VarParsing.VarParsing.multiplicity.singleton,
                  VarParsing.VarParsing.varType.int,
                  "Number of events to generate")
@@ -151,14 +151,16 @@ process.genstepfilter.triggerConditions=cms.vstring("generation_step")
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase1_2025_cosmics', '')
 
-process.generator = cms.EDProducer("FlatRandomPtGunProducer",
+process.generator = cms.EDProducer("MultiVtxFlatRandomPtGunProducer",
     AddAntiParticle = cms.bool(False),
     PGunParameters = cms.PSet(
-        MaxEta = cms.double(EtaMid+ShowerHalfWidth),
+        MinEta = cms.double(-2.0),   # Dummy value for BaseFlatGunProducer, does not do anything
+        MaxEta = cms.double(2.0),    # Same as above
+        MaxZenithAngle = cms.double(MaxZenithAngle),
+        ShowerHalfWidth = cms.double(ShowerHalfWidth),
         MaxPhi = cms.double(-1.58),
-        MaxPt = cms.double(3000.0),
-        MinEta = cms.double(EtaMid-ShowerHalfWidth),
         MinPhi = cms.double(-1.56),
+        MaxPt = cms.double(3000.0),
         MinPt = cms.double(100.0),
         PartID = cms.vint32([13]*nGenMuons)
     ),
@@ -193,15 +195,17 @@ process = customiseEarlyDelete(process)
 # =========================================================
 # HACK: Move the origin of the muons to the top of the cavern
 # =========================================================
-process.VtxSmeared = cms.EDProducer("FlatEvtVtxGenerator",
-    MinX = cms.double(-500.0), # Transversal area: 10 meters 
+process.VtxSmeared = cms.EDProducer("MultiVtxFlatEvtVtxGenerator",
+    MinX = cms.double(-500.0), # Transversal area: 10 meters
     MaxX = cms.double(500.0),
     MinY = cms.double(800.0),  # Origin at 8 meter height (on top of the detector)
     MaxY = cms.double(800.0),
-    MinZ = cms.double(-600.0), # Longitudinal length: 12 meters 
+    # MinY = cms.double(13750.0),  # vertex high above detector to spread out muons. 137.50 meters should match a shower width of 5 degs.
+    # MaxY = cms.double(13750.0),
+    MinZ = cms.double(-600.0), # Longitudinal length: 12 meters
     MaxZ = cms.double(600.0),
     MinT = cms.double(0.0),
     MaxT = cms.double(0.0),
-    TimeOffset = cms.double(0.0),
+    # TimeOffset = cms.double(0.0), # TimeOffset is not read in MultiVtxFlatEvtGenerator, only original VtxFlatEvtGenerator
     src = cms.InputTag("generator", "unsmeared")
 )
