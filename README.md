@@ -1,7 +1,8 @@
 # Cosmics Muons Ntupler + Simulation Framework
 September 9th: README currently being updated and restructured 
 
-## Instructions for installing 
+## Instructions for installing
+*The patch has yet to be verified. Full installation (cloning+patches) should be tested from a new working area.*
 
 ### Installing CMSSW
 
@@ -15,13 +16,21 @@ From CMSSW_15_0_5/src, run:
     git clone git@github.com:fmanteca/CosmicMuons-FrameWork.git
     scram b -j 8
 
-To run the framework, we need to include the corresponding additions/modfications of certain CMSSW packages, which are saved as a patch in this repository. From CMSSW_15_0_5/src, run:
+To run the framework, we need to include the corresponding additions/modifications of certain CMSSW packages, which are saved as a patch in this repository. From CMSSW_15_0_5/src, run:
 
+    git cms-addpkg IOMC/ParticleGuns
+    git cms-addpkg IOMC/EventVertexGenerators
+    git cms-addpkg Configuration/Generator
+    git cms-addpkg RecoLocalMuon/Configuration
 
+    git apply CosmicMuons-FrameWork/cosmic_muon_gun.patch
+    scram b -j 8
 
-## Overview : Directory structure and select file descriptions
+## Overview : Directory structure and file descriptions
 
-DataSegment_AOD/
+### DataSegment_AOD/
+Contains files related to generation of AOD files (that contain all segment and hit info) from cosmic RAW files.
+
 * CosmicPPreco_RAW2DIGI_RECO.py:
   + Takes raw cosmic data files and generates AOD files including segment data.
   + Configuration options: 
@@ -39,7 +48,9 @@ DataSegment_AOD/
     - config.Data.inputDataset: DAS dataset name (for txt list of datafiles, use userInputFiles and outputPrimaryDataset options instead)
   + Output: AOD files with names "CosmicPPreco_RAW2DIGI_RECO_{JOB-NUMBER}.root" in generated output directory.
 
-Simulation/
+### Simulation/
+Contains files related to generation and simulation of cosmic muon showers through CMS.
+
 * MultiCosmicGun_GEN_SIM_cfg.py:
   + Simulates cosmic muon showers by generating them above the detector with momentum going towards the detector. Each muon is generated with a random origin along the  axis parallel to the beamline. The direction of the shower is determined by Max/Min eta.
   + Input params
@@ -81,10 +92,13 @@ Simulation/
     - Submits the condor job following the shell script when called ´condor_submit condor.sub´
     - Configuration options: .txt file path
 
-Ntuplizer/
+### Ntuplizer/
+Contains files related to generation of Ntuples from AOD files. 
+
 * Cosmics_runNtuplizer_AOD_cfg.py
-  + Produces Ntuples including segment info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
+  + Produces Ntuples including segment and hit info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
   + Outputs ntuples.root
+  + Only accepts data that contains all neccessary segment+hit info. Therefore does not accept cosmic files in RECO format directly from DAS.
 * condor/
   + Cosmics_runNtuplizer_AOD_cfg.py
     - Version of the Ntuplizer for condor (feeds from plugin/MuonNtupleProducer just like the non-condor Ntuplizer)
@@ -99,8 +113,78 @@ Ntuplizer/
     - Submits the condor job following the shell script when called ´condor_submit condor.sub´
     - Configuration options: .txt file path
 
-## Including muon segments and hits in AOD
+### Patch_References/
+Contains read-only copies of the files modified/added by `CosmicMuons.patch`. These are just included for convenience so the changes can be browsed without applying the patch, but the framework has no direct dependence on these copies. 
 
+* RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py
+* Configuration/Generator/python/MultiCosmicGun_cfi.py
+* IOMC/
+  + EventVertexGenerators/
+    - interface/MultiVtxFlatEvtVtxGenerator.h
+    - src/MultiVtxFlatEvtVtxGenerator.cc
+    - /src/module.cc
+  + ParticleGuns/
+    - interface/MultiVtxFlatRandomPtGunProducer.h
+    - src/MultiVtxFlatRandomPtGunProducer.cc
+    - src/SealModule.cc
+   
+## Tips&tricks
+
+### Submit jobs to HTCondor (needs edits) 
+
+Before running the following commands, set your personal path in run.sh and select the input datasets and output path in prepare_files.py.
+
+prepare_files.py will produce a txt file where each row will contain a pair input_file output_file. 
+
+condor.sub will submit one job per row to the cluster, taking run.sh as the executable.
+
+    cd condor
+    voms-proxy-init --voms cms --hours 96  -out ${HOME}/.x509up_${UID};export X509_USER_PROXY=${HOME}/.x509up_${UID}
+    python3 prepare_files.py
+    condor_submit condor.sub
+
+Merge the outputs with hadd. Example:
+
+    hadd /eos/cms/store/group/phys_muon/fernanpe/Cosmics2025/merged.root /eos/cms/store/group/phys_muon/fernanpe/Cosmics2025/*/*root
+    
+### Submit jobs to crab (needs edits)
+The following instructions will allow to submit jobs to the cluster for an entire dataset like '/Cosmics/Run2025A-PromptReco-v1/AOD'. The output ntuples can be stored in your '/eos/user/' area if T3_CH_CERNBOX is set as storage site (see crab_CosmicsData_2025A_AOD.py).
+
+    source /cvmfs/cms.cern.ch/crab3/crab.sh
+    cmsenv
+    voms-proxy-init --voms cms --valid 168:00
+    crab submit crab_Commissioning2025.py
+
+This option is useful when the dataset is no longer available on disk, as crab will request a copy on disk automatically before starting running the jobs.
+
+
+### Event displays with Fireworks (accept miniAOD/AOD/RECO formats as input)
+
+Use edmPickEvents.py to filter out events if needed (see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookPickEvents).
+
+Copy the output to a public /eos/cms/store/group/ path.
+
+Insert path here: [https://fireworks.cern.ch/cmsShowWeb/revetor.pl](https://fireworks.cern.ch/cmsShowWeb/service.pl) (starting with /store/)
+
+There is also the possibility to read files from your /eos/user/ private path. Follow the instructions here: https://github.com/alja/FireworksWeb/blob/main/doc/UserGuide.md
+
+Instructions for cosmic multi-muons:
+* Add Collections -> type "leg" -> select "Muons muon1Leg"
+* FilterDialog -> $Muons10_muons1Leg@.size()>10 
+* 3D -> i -> Geometry -> show all
+
+### Useful links:
+* Muon reconstruction documentation: https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideMuons
+* Cosmic muon reconstruction documentation: https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideCosmicMuonReco
+* reco::Muon class: https://github.com/cms-sw/cmssw/blob/master/DataFormats/MuonReco/interface/Muon.h
+* Muon POG selections & definitions: https://github.com/cms-sw/cmssw/blob/master/DataFormats/MuonReco/src/MuonSelectors.cc
+* OMS (used to get run numbers from CRUZET/CRAFT): https://cmsoms.cern.ch/cms/run_3_cruz/cruzet_2025?cms_run_sequence=GLOBAL-RUN
+* Get the datasets containing a given run number in DAS: https://cmsweb.cern.ch/das/request?view=list&limit=50&instance=prod%2Fglobal&input=dataset+run%3D389767
+
+
+## Considerations during framework developement process 
+
+### Including segment info in data files
 It turns out that, by default, CMS saves muon segments in AOD for pp collision runs, but not for cosmics. One has to add them here: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py#L5. Benchmark from pp cfg: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuon_EventContent_cff.py#L7-L13.
 
 Follow these instructions to produce customized AOD (with muon segments in) from RAW data:
@@ -115,7 +199,7 @@ Finally, submit jobs to crab taking /Cosmics/Commissioning2025-v1/RAW as the inp
      crab submit  crab_CosmicPPreco.py
 
 
-## Producing Ntuples
+### Producing Ntuples
 The framework will produce Ntuples from AOD. Every time you make a change anywhere, for instance in 'plugins/MuonNtupleProducer.cc', do not forget to re-compile (run 'scram b -j 8' in 'CMSSW_15_0_5/src').
 The current version of the 
 
@@ -130,7 +214,7 @@ The current version of the
     cmsRun Cosmics_runNtuplizer_AOD_cfg.py
 
 
-## Simulation studies
+### Simulation studies
 
 We will make use of the `FlatRandomPtGunProducer` to generate guns of cosmic muons. It is designed to simulate collisions, meaning it generates particles exactly at the center of the detector (0,0,0) and fires them outwards. If one uses the module as is, the muons will be born at the center. Half will go upwards (passing only through the top half) and half downwards (passing only through the bottom half). To get them to completely pass through the detector from top to bottom, simulating cosmic rays, we have to trick CMSSW by doing two things: 
 
@@ -235,59 +319,3 @@ Compile from CMSSW_X_Y/src and run:
 Now one can feed FireWorks with the AOD output file, make the flat ntuples, etc. 
 
 Note that some modifications will be needed to include the generated particles truth information in the flat ntuples, i.e., read the `genParticles` collection, loop over the elements, store in new output branches the kinematic information from the muons. This is a good exercise for homework. In case it helps, I used to read that collection in the past for another project. The code logic behind is different as I was geometrically matching gen and reco muons, but some parts of the code can be taken as a benchmark: https://github.com/fmanteca/HighPt_DNN/tree/master/MyAnalysis/RECOAnalysis
-
-
-## Appendix
-
-### Submit jobs to HTCondor (needs edits) 
-
-Before running the following commands, set your personal path in run.sh and select the input datasets and output path in prepare_files.py.
-
-prepare_files.py will produce a txt file where each row will contain a pair input_file output_file. 
-
-condor.sub will submit one job per row to the cluster, taking run.sh as the executable.
-
-    cd condor
-    voms-proxy-init --voms cms --hours 96  -out ${HOME}/.x509up_${UID};export X509_USER_PROXY=${HOME}/.x509up_${UID}
-    python3 prepare_files.py
-    condor_submit condor.sub
-
-Merge the outputs with hadd. Example:
-
-    hadd /eos/cms/store/group/phys_muon/fernanpe/Cosmics2025/merged.root /eos/cms/store/group/phys_muon/fernanpe/Cosmics2025/*/*root
-    
-### Submit jobs to crab (needs edits)
-The following instructions will allow to submit jobs to the cluster for an entire dataset like '/Cosmics/Run2025A-PromptReco-v1/AOD'. The output ntuples can be stored in your '/eos/user/' area if T3_CH_CERNBOX is set as storage site (see crab_CosmicsData_2025A_AOD.py).
-
-    source /cvmfs/cms.cern.ch/crab3/crab.sh
-    cmsenv
-    voms-proxy-init --voms cms --valid 168:00
-    crab submit crab_Commissioning2025.py
-
-This option is useful when the dataset is no longer available on disk, as crab will request a copy on disk automatically before starting running the jobs.
-
-
-### Event displays with Fireworks (accept miniAOD/AOD/RECO formats as input)
-
-Use edmPickEvents.py to filter out events if needed (see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookPickEvents).
-
-Copy the output to a public /eos/cms/store/group/ path.
-
-Insert path here: [https://fireworks.cern.ch/cmsShowWeb/revetor.pl](https://fireworks.cern.ch/cmsShowWeb/service.pl) (starting with /store/)
-
-There is also the possibility to read files from your /eos/user/ private path. Follow the instructions here: https://github.com/alja/FireworksWeb/blob/main/doc/UserGuide.md
-
-Instructions for cosmic multi-muons:
-* Add Collections -> type "leg" -> select "Muons muon1Leg"
-* FilterDialog -> $Muons10_muons1Leg@.size()>10 
-* 3D -> i -> Geometry -> show all
-
-### Useful links:
-* Muon reconstruction documentation: https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideMuons
-* Cosmic muon reconstruction documentation: https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideCosmicMuonReco
-* reco::Muon class: https://github.com/cms-sw/cmssw/blob/master/DataFormats/MuonReco/interface/Muon.h
-* Muon POG selections & definitions: https://github.com/cms-sw/cmssw/blob/master/DataFormats/MuonReco/src/MuonSelectors.cc
-* OMS (used to get run numbers from CRUZET/CRAFT): https://cmsoms.cern.ch/cms/run_3_cruz/cruzet_2025?cms_run_sequence=GLOBAL-RUN
-* Get the datasets containing a given run number in DAS: https://cmsweb.cern.ch/das/request?view=list&limit=50&instance=prod%2Fglobal&input=dataset+run%3D389767
-
-
