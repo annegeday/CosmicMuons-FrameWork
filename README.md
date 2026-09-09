@@ -31,16 +31,16 @@ To run the framework, we need to include the corresponding additions/modificatio
 ### DataSegment_AOD/
 Contains files related to generation of AOD files (that contain all segment and hit info) from cosmic RAW data files.
 
-* CosmicPPreco_RAW2DIGI_RECO.py:
+* CosmicPPreco_RAW2DIGI_RECO.py
   + Takes raw cosmic data files and generates AOD files including segment data.
-  + Configuration options: 
+  + Configuration options
     - FileString: Path to raw data file in string format (Don't forget file: for a local file).
-    - MaxEvts: Number of events from the selected file(s), that you'd like to process.
+    - MaxEvts: Number of events from the selected file(s), that you'd like to process. Standard is -1, corresponding to all events.
     - numCore: Number of cores allocated for job. Standard is 1 (2 for a crab job).
   + Output: AOD file with name "CosmicPPreco_RAW2DIGI_RECO.root" in working directory. 
-* crab_CosmicPPreco.py:
+* crab_CosmicPPreco.py
   + Submits job to crab in order to process many data files.
-  + Configuration options: 
+  + Configuration options 
     - config.JobType.numCores: **Must** match numCores in CosmicPPreco_RAW2DIGI_RECO.py.
     - config.JobType.maxMemoryMB: Memory allocated, depends on number of cores (1 core: 2500-3000)
     - config.Data.outLFNDirBase: Placement of output directory
@@ -51,15 +51,15 @@ Contains files related to generation of AOD files (that contain all segment and 
 ### Simulation/
 Contains files related to generation and simulation of cosmic muon showers through CMS.
 
-* MultiCosmicGun_GEN_SIM_cfg.py:
+* MultiCosmicGun_GEN_SIM_cfg.py
   + Simulates cosmic muon showers by generating them above the detector with momentum going towards the detector. Each muon is generated with a random origin along the  axis parallel to the beamline. The direction of the shower is determined by Max/Min eta.
   + Input params
     - nMuons: Number of muons generated per event/muons in the shower. No default, **Must** be specified when calling the script, ex: `cmsRun MultiCosmicGun_GEN_SIM_cfg.py nMuons=5`
     - nEvents: Number of events generated. Default is 1000.
     - output: Path for output file. Default is 'GEN-SIM_MultiCosmic.root'.
-  + Shower settings
-    - EtaMid: The "median" direction of the muons (middle of the range).
-    - ShowerHalfWidth: The allowed deviation of muon direction from EtaMid.
+  + Configuration options (Shower settings):
+    - MaxZenithAngle: The maximum allowed zenith angle of shower core. Standard is 1.047 corresponding to ~60 degrees.
+    - ShowerHalfWidth: The allowed deviation of muon direction from shower core.
   + Outputs root file in accordance with output path.
 * GEN_SIM_to_AOD_cfg.py
   + Takes file containing simulated muons and generates "data-like" AOD files.
@@ -78,7 +78,7 @@ Contains files related to generation and simulation of cosmic muon showers throu
   + Outputs a root file containing a TTree in accordance with output path. 
 * condor/
   + prepare_sim_input.py
-    - Creates text file with nMuons,nEvents
+    - Creates text file with nMuons,nEvents.
     - Configuration options
           nMuons_list: List with nMuons for each desired job.
           output_txt_file: txt output path.
@@ -87,34 +87,41 @@ Contains files related to generation and simulation of cosmic muon showers throu
           nEvents_list: List with number of events for each job. Job index should match with nMuons_list (if nEvents_constant = False).
   + run.sh
     - Shell script to cd to working directory, ensure safe file names and call both simulation scripts, one after the other.
-    - Configuration options: working directory
+    - Configuration options: set your own working directory, last two lines can be commented in or out, depending on whether you want to keep the intermediate GEN-SIM files after simulation. 
   + condor.sub
-    - Submits the condor job following the shell script when called ´condor_submit condor.sub´
-    - Configuration options: .txt file path
+    - Submits the condor job following the shell script when command ´condor_submit condor.sub´ is called.
+    - Configuration options: path to .txt file with nMuons,nEvents.
 
 ### Ntuplizer/
 Contains files related to generation of Ntuples from AOD files. 
 
 * Cosmics_runNtuplizer_AOD_cfg.py
-  + Produces Ntuples including segment and hit info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
-  + Outputs ntuples.root
+  + Takes the MuonNtupleProducer plugin and produces Ntuples including segment and hit info. If the data comes from simulated muons, the output will contain info regarding the muons(s) that were generated for each event.
   + Only accepts data that contains all neccessary segment+hit info. Therefore does not accept cosmic files in RECO format directly from DAS.
+  + Configuration options
+    - inputPath: Path to AOD data file in string format (Don't forget file: for a local file)
+  + Outputs ntuples.root in working directory 
 * condor/
   + Cosmics_runNtuplizer_AOD_cfg.py
     - Version of the Ntuplizer for condor (feeds from plugin/MuonNtupleProducer just like the non-condor Ntuplizer)
-  + prepare_files.py
-    - Takes dataset path(s) and generates a .txt file with all the corresponding file names, 1 per line.
-    - Input: dataset path(s)
-    - Output: 'files.txt' in output base 
-  + run.sh
-    - Shell script to access grid proxy, find condor working directory and start job
-    - Configuration options: X509_USER_PROXY and working directory
-  + condor.sub
-    - Submits the condor job following the shell script when called ´condor_submit condor.sub´
-    - Configuration options: .txt file path
+  + data_input/
+    - prepare_files.py
+      * Takes dataset path(s) and generates a .txt file with all the corresponding file names, 1 per line.
+      * Input: dataset path(s)
+      * Output: 'files.txt' in output base
+    - run.sh
+      * Shell script to access grid proxy, find condor working directory and start job
+      * Configuration options: X509_USER_PROXY and working directory
+    - condor.sub
+      * Submits the condor job following the shell script when called ´condor_submit condor.sub´
+      * Configuration options: .txt file path
+  + sim_input/
+    - run.sh
+    - condor.sub
+    - nMuons_lineSep.txt
 
 ### Patch_References/
-Contains read-only copies of the files modified/added by `CosmicMuons.patch`. These are just included for convenience so the changes can be browsed without applying the patch, but the framework has no direct dependence on these copies. 
+Contains read-only copies of the files modified/added by `CosmicMuons.patch`. These are just included for convenience so the changes can be browsed easily without applying the patch, but the framework has no direct dependence on these copies. 
 
 * RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py
 * Configuration/Generator/python/MultiCosmicGun_cfi.py
@@ -160,13 +167,11 @@ This option is useful when the dataset is no longer available on disk, as crab w
 
 ### Event displays with Fireworks (accept miniAOD/AOD/RECO formats as input)
 
-Use edmPickEvents.py to filter out events if needed (see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookPickEvents).
+Use edmPickEvents.py to filter out events from a full data set, if needed (see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookPickEvents).
 
-Copy the output to a public /eos/cms/store/group/ path.
+Copy the output to a public /eos/cms/store/group/ path. There is also the possibility to read files from your /eos/user/ private path. Follow the instructions here: https://github.com/alja/FireworksWeb/blob/main/doc/UserGuide.md
 
 Insert path here: [https://fireworks.cern.ch/cmsShowWeb/revetor.pl](https://fireworks.cern.ch/cmsShowWeb/service.pl) (starting with /store/)
-
-There is also the possibility to read files from your /eos/user/ private path. Follow the instructions here: https://github.com/alja/FireworksWeb/blob/main/doc/UserGuide.md
 
 Instructions for cosmic multi-muons:
 * Add Collections -> type "leg" -> select "Muons muon1Leg"
