@@ -1,0 +1,386 @@
+diff --git a/Configuration/Generator/python/MultiCosmicGun_cfi.py b/Configuration/Generator/python/MultiCosmicGun_cfi.py
+new file mode 100644
+index 00000000000..6a4e972976b
+--- /dev/null
++++ b/Configuration/Generator/python/MultiCosmicGun_cfi.py
+@@ -0,0 +1,20 @@
++import FWCore.ParameterSet.Config as cms
++import math
++
++generator = cms.EDProducer("FlatRandomPtGunProducer",
++    PGunParameters = cms.PSet(
++        # Muons per event defined in PartID                                                                                                                                                         
++        PartID = cms.vint32(13, 13, 13, 13),
++        MinPt  = cms.double(10.0),
++        MaxPt  = cms.double(3000.0),
++        MinEta = cms.double(-2.5),
++        MaxEta = cms.double(2.5),
++        # Negative phi: all the particles point downwards (-Y)                                                                                                                                      
++        MinPhi = cms.double(-math.pi),
++        MaxPhi = cms.double(0.0)
++    ),
++    AddAntiParticle = cms.bool(False),
++    Verbosity       = cms.untracked.int32(0)
++)
++
++ProductionFilterSequence = cms.Sequence(generator)
+diff --git a/IOMC/EventVertexGenerators/interface/MultiVtxFlatEvtVtxGenerator.h b/IOMC/EventVertexGenerators/interface/MultiVtxFlatEvtVtxGenerator.h
+new file mode 100644
+index 00000000000..9ed073d6378
+--- /dev/null
++++ b/IOMC/EventVertexGenerators/interface/MultiVtxFlatEvtVtxGenerator.h
+@@ -0,0 +1,29 @@
++#ifndef IOMC_MultiVtxFlatEvtVtxGenerator_H
++#define IOMC_MultiVtxFlatEvtVtxGenerator_H
++
++#include "FWCore/Framework/interface/stream/EDProducer.h"
++#include "FWCore/Utilities/interface/EDGetToken.h"
++
++namespace CLHEP {
++  class HepRandomEngine;
++}
++
++namespace edm {
++  class HepMCProduct;
++}
++
++class MultiVtxFlatEvtVtxGenerator : public edm::stream::EDProducer<> {
++public:
++  explicit MultiVtxFlatEvtVtxGenerator(const edm::ParameterSet&);
++  ~MultiVtxFlatEvtVtxGenerator() override;
++
++  void produce(edm::Event&, const edm::EventSetup&) override;
++
++private:
++  edm::EDGetTokenT<edm::HepMCProduct> sourceToken_;
++
++  double fMinX, fMinY, fMinZ, fMinT;
++  double fMaxX, fMaxY, fMaxZ, fMaxT;
++};
++
++#endif
+diff --git a/IOMC/EventVertexGenerators/src/MultiVtxFlatEvtVtxGenerator.cc b/IOMC/EventVertexGenerators/src/MultiVtxFlatEvtVtxGenerator.cc
+new file mode 100644
+index 00000000000..a3efd5770ac
+--- /dev/null
++++ b/IOMC/EventVertexGenerators/src/MultiVtxFlatEvtVtxGenerator.cc
+@@ -0,0 +1,70 @@
++#include "IOMC/EventVertexGenerators/interface/MultiVtxFlatEvtVtxGenerator.h"
++// #include <iostream> //add this for debugging
++#include "FWCore/Framework/interface/Event.h"
++#include "FWCore/MessageLogger/interface/MessageLogger.h"
++#include "FWCore/ParameterSet/interface/ParameterSet.h"
++#include "FWCore/ServiceRegistry/interface/Service.h"
++#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
++#include "FWCore/Utilities/interface/Exception.h"
++
++#include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
++
++#include <CLHEP/Random/RandFlat.h>
++#include <CLHEP/Units/SystemOfUnits.h>
++#include <CLHEP/Units/GlobalPhysicalConstants.h>
++
++using CLHEP::cm;
++using CLHEP::ns;
++using namespace edm;
++
++MultiVtxFlatEvtVtxGenerator::MultiVtxFlatEvtVtxGenerator(const ParameterSet& p) {
++  fMinX = p.getParameter<double>("MinX") * cm;
++  fMinY = p.getParameter<double>("MinY") * cm;
++  fMinZ = p.getParameter<double>("MinZ") * cm;
++  fMaxX = p.getParameter<double>("MaxX") * cm;
++  fMaxY = p.getParameter<double>("MaxY") * cm;
++  fMaxZ = p.getParameter<double>("MaxZ") * cm;
++  fMinT = p.getParameter<double>("MinT") * ns * c_light;
++  fMaxT = p.getParameter<double>("MaxT") * ns * c_light;
++
++  if (fMinX > fMaxX)
++    throw cms::Exception("Configuration") << "MultiVtxFlatEvtVtxGenerator: MinX is greater than MaxX";
++  if (fMinY > fMaxY)
++    throw cms::Exception("Configuration") << "MultiVtxFlatEvtVtxGenerator: MinY is greater than MaxY";
++  if (fMinZ > fMaxZ)
++    throw cms::Exception("Configuration") << "MultiVtxFlatEvtVtxGenerator: MinZ is greater than MaxZ";
++  if (fMinT > fMaxT)
++    throw cms::Exception("Configuration") << "MultiVtxFlatEvtVtxGenerator: MinT is greater than MaxT";
++
++  sourceToken_ = consumes<edm::HepMCProduct>(p.getParameter<edm::InputTag>("src"));
++  produces<edm::HepMCProduct>();
++}
++
++MultiVtxFlatEvtVtxGenerator::~MultiVtxFlatEvtVtxGenerator() {}
++
++void MultiVtxFlatEvtVtxGenerator::produce(Event& evt, const EventSetup&) {
++  edm::Service<edm::RandomNumberGenerator> rng;
++  CLHEP::HepRandomEngine* engine = &rng->getEngine(evt.streamID());
++
++  Handle<HepMCProduct> HepUnsmearedMCEvt;
++  bool found = evt.getByToken(sourceToken_, HepUnsmearedMCEvt);
++  if (!found)
++    throw cms::Exception("ProductAbsent") << "MultiVtxFlatEvtVtxGenerator: no HepMCProduct found.";
++
++  // deep copy so each vertex can be repositioned independently
++  HepMC::GenEvent* genevt = new HepMC::GenEvent(*HepUnsmearedMCEvt->GetEvent());
++
++  for (auto vtxIt = genevt->vertices_begin(); vtxIt != genevt->vertices_end(); ++vtxIt) {
++    double aX = CLHEP::RandFlat::shoot(engine, fMinX, fMaxX);
++    double aY = CLHEP::RandFlat::shoot(engine, fMinY, fMaxY);
++    double aZ = CLHEP::RandFlat::shoot(engine, fMinZ, fMaxZ);
++    double aT = CLHEP::RandFlat::shoot(engine, fMinT, fMaxT);
++    (*vtxIt)->set_position(HepMC::FourVector(aX, aY, aZ, aT));
++
++    //std::cout << "Vertex barcode " << (*vtxIt)->barcode() 						//add these two lines for debugging
++           //<< " placed at [" << aX << ", " << aY << ", " << aZ << ", " << aT << "]" << std::endl;
++}
++
++  std::unique_ptr<edm::HepMCProduct> HepMCEvt(new edm::HepMCProduct(genevt));
++  evt.put(std::move(HepMCEvt));
++}
+diff --git a/IOMC/EventVertexGenerators/src/module.cc b/IOMC/EventVertexGenerators/src/module.cc
+index 128b7a31874..e49359d53a3 100644
+--- a/IOMC/EventVertexGenerators/src/module.cc
++++ b/IOMC/EventVertexGenerators/src/module.cc
+@@ -6,6 +6,7 @@
+ #include "IOMC/EventVertexGenerators/interface/PassThroughEvtVtxGenerator.h"
+ #include "IOMC/EventVertexGenerators/interface/GaussEvtVtxGenerator.h"
+ #include "IOMC/EventVertexGenerators/interface/FlatEvtVtxGenerator.h"
++#include "IOMC/EventVertexGenerators/interface/MultiVtxFlatEvtVtxGenerator.h" //added multi-vertex generator
+ #include "IOMC/EventVertexGenerators/interface/BeamProfileVtxGenerator.h"
+ #include "IOMC/EventVertexGenerators/interface/BetafuncEvtVtxGenerator.h"
+ #include "IOMC/EventVertexGenerators/interface/GaussianZBeamSpotFilter.h"
+@@ -19,6 +20,7 @@
+ DEFINE_FWK_MODULE(PassThroughEvtVtxGenerator);
+ DEFINE_FWK_MODULE(GaussEvtVtxGenerator);
+ DEFINE_FWK_MODULE(FlatEvtVtxGenerator);
++DEFINE_FWK_MODULE(MultiVtxFlatEvtVtxGenerator); //added multi-vertex generator
+ DEFINE_FWK_MODULE(BeamProfileVtxGenerator);
+ DEFINE_FWK_MODULE(BetafuncEvtVtxGenerator);
+ DEFINE_FWK_MODULE(GaussianZBeamSpotFilter);
+diff --git a/IOMC/ParticleGuns/interface/MultiVtxFlatRandomPtGunProducer.h b/IOMC/ParticleGuns/interface/MultiVtxFlatRandomPtGunProducer.h
+new file mode 100644
+index 00000000000..e82a96befee
+--- /dev/null
++++ b/IOMC/ParticleGuns/interface/MultiVtxFlatRandomPtGunProducer.h
+@@ -0,0 +1,30 @@
++#ifndef MultiVtxFlatRandomPtGunProducer_H
++#define MultiVtxFlatRandomPtGunProducer_H
++
++/** \class MultiVtxFlatRandomPtGunProducer
++ *
++ * Generates single particle gun in HepMC format
++ * Julia Yarba 12/2005 
++ ***************************************/
++
++#include "IOMC/ParticleGuns/interface/BaseFlatGunProducer.h"
++
++namespace edm {
++
++  class MultiVtxFlatRandomPtGunProducer : public BaseFlatGunProducer {
++  public:
++    MultiVtxFlatRandomPtGunProducer(const ParameterSet& pset);
++    ~MultiVtxFlatRandomPtGunProducer() override;
++
++    void produce(Event& e, const EventSetup& es) override;
++
++  private:
++    // data members
++    double fMinPt;
++    double fMaxPt;
++    double fShowerHalfWidth;
++    double fMaxZenithAngle;   // in radians, measured from vertical
++  };
++}  // namespace edm
++
++#endif
+diff --git a/IOMC/ParticleGuns/src/MultiVtxFlatRandomPtGunProducer.cc b/IOMC/ParticleGuns/src/MultiVtxFlatRandomPtGunProducer.cc
+new file mode 100644
+index 00000000000..40a9776d834
+--- /dev/null
++++ b/IOMC/ParticleGuns/src/MultiVtxFlatRandomPtGunProducer.cc
+@@ -0,0 +1,144 @@
++/*
++ *  \author Julia Yarba
++ */
++
++#include <ostream>
++//#include <iostream> //For debugging
++
++
++#include "IOMC/ParticleGuns/interface/MultiVtxFlatRandomPtGunProducer.h"
++
++#include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
++#include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
++
++#include "FWCore/Framework/interface/Event.h"
++#include "FWCore/ParameterSet/interface/ParameterSet.h"
++#include "FWCore/ServiceRegistry/interface/Service.h"
++#include "FWCore/Utilities/interface/RandomNumberGenerator.h"
++
++#include "CLHEP/Random/RandFlat.h"
++
++using namespace edm;
++using namespace std;
++
++MultiVtxFlatRandomPtGunProducer::MultiVtxFlatRandomPtGunProducer(const ParameterSet& pset) : BaseFlatGunProducer(pset) {
++  ParameterSet defpset;
++  ParameterSet pgun_params = pset.getParameter<ParameterSet>("PGunParameters");
++
++  fMinPt = pgun_params.getParameter<double>("MinPt");
++  fMaxPt = pgun_params.getParameter<double>("MaxPt");
++  fShowerHalfWidth = pgun_params.getParameter<double>("ShowerHalfWidth");
++  fMaxZenithAngle = pgun_params.getParameter<double>("MaxZenithAngle");
++
++
++  produces<HepMCProduct>("unsmeared");
++  produces<GenEventInfoProduct>();
++}
++
++MultiVtxFlatRandomPtGunProducer::~MultiVtxFlatRandomPtGunProducer() {
++  // no need to cleanup GenEvent memory - done in HepMCProduct
++}
++
++void MultiVtxFlatRandomPtGunProducer::produce(Event& e, const EventSetup& es) {
++  edm::Service<edm::RandomNumberGenerator> rng;
++  CLHEP::HepRandomEngine* engine = &rng->getEngine(e.streamID());
++
++  if (fVerbosity > 0) {
++    cout << "MultiVtxFlatRandomPtGunProducer : Begin New Event Generation" << endl;
++  }
++  // event loop (well, another step in it...)
++
++  // no need to clean up GenEvent memory - done in HepMCProduct
++  //
++
++  // here re-create fEvt (memory)
++  //
++  fEvt = new HepMC::GenEvent();
++
++  // draw this event's shower direction from a cos^2(zenith angle) distribution,
++  // symmetric about vertical (alpha = 0)
++  double alpha;
++  while (true) {
++    alpha = CLHEP::RandFlat::shoot(engine, 0., fMaxZenithAngle);
++    double u = CLHEP::RandFlat::shoot(engine, 0., 1.);
++    if (u < cos(alpha) * cos(alpha))
++      break;
++  }
++  if (CLHEP::RandFlat::shoot(engine, 0., 1.) < 0.5)
++    alpha = -alpha;   // equally likely to tilt toward +z or -z
++
++  double thetaMid = M_PI / 2. - alpha;
++  double etaMid = -log(tan(thetaMid / 2.));
++
++  //std::cout << "Event zenith alpha = " << alpha * 180. / M_PI << " deg, etaMid = " << etaMid << std::endl; //for debugging
++
++  double evtMinEta = etaMid - fShowerHalfWidth;
++  double evtMaxEta = etaMid + fShowerHalfWidth;
++
++
++  // now actualy, cook up the event from PDGTable and gun parameters
++  //
++  // 1st, primary vertex
++  //
++  //HepMC::GenVertex* Vtx = new HepMC::GenVertex(HepMC::FourVector(0., 0., 0.));
++  //^this is commented out and moved to loop in order to generate new vertex per particle in same event
++  // loop over particles
++  //
++  int barcode = 1;
++  for (unsigned int ip = 0; ip < fPartIDs.size(); ++ip) {
++    HepMC::GenVertex* Vtx = new HepMC::GenVertex(HepMC::FourVector(0., 0., 0.));
++    double pt = CLHEP::RandFlat::shoot(engine, fMinPt, fMaxPt);
++    double eta = CLHEP::RandFlat::shoot(engine, evtMinEta, evtMaxEta);
++    double phi = CLHEP::RandFlat::shoot(engine, fMinPhi, fMaxPhi);
++    int PartID = fPartIDs[ip];
++    const HepPDT::ParticleData* PData = fPDGTable->particle(HepPDT::ParticleID(abs(PartID)));
++    double mass = PData->mass().value();
++    double theta = 2. * atan(exp(-eta));
++    double mom = pt / sin(theta);
++    double px = pt * cos(phi);
++    double py = pt * sin(phi);
++    double pz = mom * cos(theta);
++    double energy2 = mom * mom + mass * mass;
++    double energy = sqrt(energy2);
++    HepMC::FourVector p(px, py, pz, energy);
++    HepMC::GenParticle* Part = new HepMC::GenParticle(p, PartID, 1);
++    Part->suggest_barcode(barcode);
++    barcode++;
++    Vtx->add_particle_out(Part);
++
++    if (fAddAntiParticle) {
++      HepMC::FourVector ap(-px, -py, -pz, energy);
++      int APartID = -PartID;
++      if (PartID == 22 || PartID == 23) {
++        APartID = PartID;
++      }
++      HepMC::GenParticle* APart = new HepMC::GenParticle(ap, APartID, 1);
++      APart->suggest_barcode(barcode);
++      barcode++;
++      Vtx->add_particle_out(APart);
++    }
++    fEvt->add_vertex(Vtx);
++  }
++
++  fEvt->set_event_number(e.id().event());
++  fEvt->set_signal_process_id(20);
++
++  if (fVerbosity > 0) {
++    fEvt->print();
++  }
++
++  unique_ptr<HepMCProduct> BProduct(new HepMCProduct());
++  BProduct->addHepMCData(fEvt);
++  e.put(std::move(BProduct), "unsmeared");
++
++  unique_ptr<GenEventInfoProduct> genEventInfo(new GenEventInfoProduct(fEvt));
++  e.put(std::move(genEventInfo));
++
++  if (fVerbosity > 0) {
++    // for testing purpose only
++    // fEvt->print() ; // prints empty info after it's made into edm::Event
++    cout << "MultiVtxFlatRandomPtGunProducer : Event Generation Done " << endl;
++  }
++}
++//#include "FWCore/Framework/interface/MakerMacros.h"
++//DEFINE_FWK_MODULE(MultiVtxFlatRandomPtGunProducer);
+diff --git a/IOMC/ParticleGuns/src/SealModule.cc b/IOMC/ParticleGuns/src/SealModule.cc
+index 7ea096af7cb..21670fddd06 100644
+--- a/IOMC/ParticleGuns/src/SealModule.cc
++++ b/IOMC/ParticleGuns/src/SealModule.cc
+@@ -16,6 +16,7 @@
+ #include "IOMC/ParticleGuns/interface/FlatRandomOneOverPtGunProducer.h"
+ #include "IOMC/ParticleGuns/interface/FlatRandomPtAndDxyGunProducer.h"
+ #include "IOMC/ParticleGuns/interface/FlatRandomPtGunProducer.h"
++#include "IOMC/ParticleGuns/interface/MultiVtxFlatRandomPtGunProducer.h" //added for multi-vertex
+ #include "IOMC/ParticleGuns/interface/FlatRandomPtThetaGunProducer.h"
+ #include "IOMC/ParticleGuns/interface/GaussRandomPThetaGunProducer.h"
+ #include "IOMC/ParticleGuns/interface/MultiParticleInConeGunProducer.h"
+@@ -41,6 +42,8 @@ using edm::FlatRandomEGunProducer;
+ DEFINE_FWK_MODULE(FlatRandomEGunProducer);
+ using edm::FlatRandomPtGunProducer;
+ DEFINE_FWK_MODULE(FlatRandomPtGunProducer);
++using edm::MultiVtxFlatRandomPtGunProducer; // Added multi-vertex
++DEFINE_FWK_MODULE(MultiVtxFlatRandomPtGunProducer); // Added multi-vertex
+ using edm::FlatRandomEThetaGunProducer;
+ DEFINE_FWK_MODULE(FlatRandomEThetaGunProducer);
+ using edm::FlatRandomMultiParticlePGunProducer;
+diff --git a/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py b/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py
+index 2f8239f44bf..f13427c5417 100644
+--- a/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py
++++ b/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py
+@@ -2,7 +2,16 @@ import FWCore.ParameterSet.Config as cms
+ 
+ # AOD content
+ RecoLocalMuonAOD = cms.PSet(
+-    outputCommands = cms.untracked.vstring()
++    outputCommands = cms.untracked.vstring(
++        'keep *_genParticles_*_*',
++        'keep *_generator_*_*',
++        'keep *_g4SimHits_Muon*_*', #These three^ ensure we keep info about generated particles, if there were any
++        'keep *_dt4DSegments_*_*', 
++        'keep *_dt4DCosmicSegments_*_*',
++        'keep *_cscSegments_*_*',
++        'keep *_rpcRecHits_*_*',
++        'keep *_dt1DRecHits_*_*',
++        'keep *_csc2DRecHits_*_*') #These five^ ensure we keep segment info from the raw data when generating AOD files
+ )
+ from Configuration.Eras.Modifier_run2_GEM_2017_cff import run2_GEM_2017
+ from Configuration.Eras.Modifier_run3_GEM_cff import run3_GEM
