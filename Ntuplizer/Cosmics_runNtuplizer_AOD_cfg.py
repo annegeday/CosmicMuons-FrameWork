@@ -11,20 +11,17 @@ process.GlobalTrackingGeometryESProducer = cms.ESProducer("GlobalTrackingGeometr
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, "150X_dataRun3_Prompt_v1", "") # Crucial to get the magnetic field properly
 
+# Set input file path
+inputPath = 'file:/eos/cms/store/group/phys_muon/fernanpe/EventDisplays/46af13d3-f53a-4cb4-b640-b1606b065daa.root'
+
 # Source
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
-        'file:/eos/user/a/aovergaa/SummerStudent_Project/CMSSW_15_0_5/src/CosmicMuons-FrameWork/Ntuplizer/AODSIM.root'
-	#'file:/eos/user/a/aovergaa/SummerStudent_Project/CMSSW_15_0_5/src/CosmicMuons-FrameWork/Simulation/output/sim_v0/AODSIM_nMuons40.root'
-	#'file:/eos/cms/store/cmst3/group/cosmics/CosmicMuons/Commissioning2025_RECO/AOD_FILES/CosmicPPreco_RAW2DIGI_RECO_3508.root'
-        #'file:6ddf0cc8-31e6-4714-b3de-f521348e9b7f.root'
-        #'file:14cbfe49-ca4a-4d65-aa56-d349ba6415a0.root', #RAW-RECO
-        #'file:63cb89d6-f6e8-4ab8-b7df-178bad21884e.root', # annabela
-        # 'file:/eos/cms/store/group/phys_muon/fernanpe/EventDisplays/46af13d3-f53a-4cb4-b640-b1606b065daa.root', #Commissioning 2025 file
+        inputPath,
     )
 )
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(-1)  
+    input = cms.untracked.int32(-1)
 )
 
 #output

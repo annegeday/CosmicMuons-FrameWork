@@ -24,5 +24,6 @@ fi
 echo "Step 2/2: GEN-SIM -> AODSIM"
 cmsRun GEN_SIM_to_AOD_cfg.py input=${GENSIM_FILE} output=${AOD_FILE}
 
+# Remove GEN-SIM files at the end of simulation, to conserve disk space
 # echo "Cleaning up intermediate GEN-SIM file"
 # rm -f ${GENSIM_FILE}
