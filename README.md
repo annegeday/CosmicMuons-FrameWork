@@ -23,13 +23,13 @@ To run the framework, we need to include the corresponding additions/modificatio
     git cms-addpkg Configuration/Generator
     git cms-addpkg RecoLocalMuon/Configuration
 
-    git apply CosmicMuons-FrameWork/cosmic_muon_gun.patch
+    git apply CosmicMuons-FrameWork/CosmicMuons.patch
     scram b -j 8
 
 ## Overview : Directory structure and file descriptions
 
 ### DataSegment_AOD/
-Contains files related to generation of AOD files (that contain all segment and hit info) from cosmic RAW files.
+Contains files related to generation of AOD files (that contain all segment and hit info) from cosmic RAW data files.
 
 * CosmicPPreco_RAW2DIGI_RECO.py:
   + Takes raw cosmic data files and generates AOD files including segment data.
