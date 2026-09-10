@@ -216,7 +216,7 @@ Instructions for cosmic multi-muons:
 ## Considerations during framework developement process 
 
 ### Including segment and hit info in data files
-It turns out that, by default, CMS saves muon segments in AOD for pp collision runs, but not for cosmics. One has to add them here: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py#L5. Benchmark from pp cfg: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuon_EventContent_cff.py#L7-L13.
+It turns out that, by default, CMS saves muon segments in AOD for pp collision runs, but not for cosmics. One has to add them [here:](https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py#L5). Benchmark from pp cfg: [here](https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuon_EventContent_cff.py#L7-L13).
 
 The script to produce customized AOD (with muon segments + DT/CSC hist info kept) from RAW data, is located in the DataSegment_AOD/ directory. See [here](#DataSegment_AOD)
 
@@ -251,61 +251,88 @@ To include these changes, modifications and addition were made to the CMSSW pre-
 
 #### 1. The Generator: Firing Downwards.
 
-In the CMS coordinate system, the Y-axis points upwards. The azimuthal angle $\phi$ dictates the direction in the transverse plane: $\phi = +\pi/2$ is upwards. $\phi = -\pi/2$ is directly downwards. We configure the generator to fire, for example, 4 muons that go exclusively in the lower hemisphere (downwards):
+In the CMS coordinate system, the Y-axis points upwards. The azimuthal angle $\phi$ dictates the direction in the transverse plane: $\phi = +\pi/2$ is upwards. $\phi = -\pi/2$ is directly downwards. 
+Below is the block of code where we define parameteres for the particle gun. We configure the generator to fire muons that go exclusively in the lower hemisphere (downwards) by restricting Max/Min Phi to a narrow window near $\phi = -\pi/2$. The number of muons is set by multiplying the particleID for a muon (\[13\]) with the variable integer of generated muons. This is also where particle momemtum can be adjusted. Default is a random value between 100 and 3000 GeV.
 
-     git cms-init
-     git cms-addpkg Configuration/Generator
-     cd Configuration/Generator/python
-     cmsenv
-     
-Create a file `MultiCosmicGun_cfi.py` in `Configuration/Generator/python` with the following content:
-     
-```
-import FWCore.ParameterSet.Config as cms
-import math
+In MultiCosmicGun_GEN_SIM_cfg.py: 
 
-generator = cms.EDProducer("FlatRandomPtGunProducer",
-    PGunParameters = cms.PSet(
-        # Muons per event defined in PartID                                                                                                                                                         
-        PartID = cms.vint32(13, 13, 13, 13),
-        MinPt  = cms.double(10.0),
-        MaxPt  = cms.double(3000.0),
-        MinEta = cms.double(-2.5),
-        MaxEta = cms.double(2.5),
-        # Nehative phi: all the particles point downwards (-Y)                                                                                                                                      
-        MinPhi = cms.double(-math.pi),
-        MaxPhi = cms.double(0.0)
-    ),
-    AddAntiParticle = cms.bool(False),
-    Verbosity       = cms.untracked.int32(0)
-)
+    process.generator = cms.EDProducer("MultiVtxFlatRandomPtGunProducer",
+        AddAntiParticle = cms.bool(False),
+        PGunParameters = cms.PSet(
+            MinEta = cms.double(-2.0),   # Dummy value for BaseFlatGunProducer, does not do anything
+            MaxEta = cms.double(2.0),    # Same as above
+            MaxZenithAngle = cms.double(MaxZenithAngle),
+            ShowerHalfWidth = cms.double(ShowerHalfWidth),
+            MaxPhi = cms.double(-1.58),
+            MinPhi = cms.double(-1.56),
+            MaxPt = cms.double(3000.0),
+            MinPt = cms.double(100.0),
+            PartID = cms.vint32([13]*nGenMuons)
+        ),
+        Verbosity = cms.untracked.int32(0)
+    )
 
-ProductionFilterSequence = cms.Sequence(generator)
-```
+#### 2. The Particle Gun: Assign an angle as the shower core for each event
+Because the particle gun is intented to simulate collisions, it does not have the option to make event-specific angular restrictions, so we have to find a way to include this ourselves. 
+For each produced event, we want all muons to have very similar arrival angles, but we want these arrival angle to vary for each event. To solve this, every time the Particle Gun module starts a new event, it draws an angle from a symmetric $\cos^2\left(\alpha\right)$ distribution, where $\alpha$ is the zenith angle/arrival of the cosmic ray. $\alpha$ is capped by the variable MaxZenithAngle in MultiCosmicGun_GEN_SIM_cfg.py. This choice of distribution is standard from cosmic ray litterature. See where this adjustment to the particle gun is implemented below.
 
-And create the CMSSW config file to produce GEN-SIM under Run-3 cosmic conditions:
+In MultiVtxFlatRandomPtGunProducer.cc:
 
-     (cd CMSSW_X_Y/src)
-     cmsDriver.py MultiCosmicGun_cfi      --fileout file:GEN-SIM_MultiCosmic.root      --mc      --eventcontent RAWSIM      --datatier GEN-SIM      --conditions auto:phase1_2025_cosmics      --beamspot NoVertexSmear      --scenario cosmics      --step GEN,SIM      --geometry DB:Extended      --era Run3      -n 100      --python_filename MultiCosmicGun_GEN_SIM_cfg.py      --no_exec
+    \\ (...) Beginning of event loop above, then 
+      double alpha;
+      while (true) {
+        alpha = CLHEP::RandFlat::shoot(engine, 0., fMaxZenithAngle);
+        double u = CLHEP::RandFlat::shoot(engine, 0., 1.);
+        if (u < cos(alpha) * cos(alpha))
+          break;
+      }    
+      if (CLHEP::RandFlat::shoot(engine, 0., 1.) < 0.5)
+        alpha = -alpha;   // equally likely to tilt toward +z or -z
 
-#### 2. The Vertex: Move the origin to the top.
+      double thetaMid = M_PI / 2. - alpha;
+      double etaMid = -log(tan(thetaMid / 2.));
+  
+      double evtMinEta = etaMid - fShowerHalfWidth;
+      double evtMaxEta = etaMid + fShowerHalfWidth;
 
-Now we need to tell CMSSW that these particles are not born at the center $(0,0,0)$, but on an imaginary plane above the detector (for example, at $Y = +800$ cm, just outside the muon barrel). Add this block at the end of the produced cfg file:
+This shows that a the beginning of an event loop, we have determined evtMinEta and evtMaxEta for particles contained in that event. 
+
+#### 3. The Vertex Producer: Generate a vertex for each individual muon
+The standard vertex generator initially used for the generator, only assigns a single vertex per event, thus generating every muon at the same xyz-coordinate (usually set for collisions to (0,0)). As muons with the same cosmic shower are seperated in space, we want an individual vertex per muon. This requires that our new vertex generator assigns a random X-Y- and Z- value for each muon, which happens in the loop described below. 
+
+In MultiVtxFlatEvtVtxGenerator.cc : 
+  
+      HepMC::GenEvent* genevt = new HepMC::GenEvent(*HepUnsmearedMCEvt->GetEvent());
+
+      for (auto vtxIt = genevt->vertices_begin(); vtxIt != genevt->vertices_end(); ++vtxIt) {
+        double aX = CLHEP::RandFlat::shoot(engine, fMinX, fMaxX);
+        double aY = CLHEP::RandFlat::shoot(engine, fMinY, fMaxY);
+        double aZ = CLHEP::RandFlat::shoot(engine, fMinZ, fMaxZ);
+        double aT = CLHEP::RandFlat::shoot(engine, fMinT, fMaxT);
+        (*vtxIt)->set_position(HepMC::FourVector(aX, aY, aZ, aT));
+    }
+
+      std::unique_ptr<edm::HepMCProduct> HepMCEvt(new edm::HepMCProduct(genevt));
+      evt.put(std::move(HepMCEvt));
+
+#### 4. Vertex Smearing: Move each origin to the top.
+
+Now we need to tell CMSSW that these particles are not born at the center $(0,0,0)$, but on an imaginary plane above the detector (for example, at $Y = +800$ cm, just outside the muon barrel). To do this, we use the process called "Vertex-smearing". This is intended to allow offsets in $(0,0,0)$, but if we force MinY = MaxY = 800, we fix the vertex to a plane right above the detector. The size of the plane is determined by Min/Max for X and Y, and is set to 10x12 meters 
 
 ```
 # =========================================================
 # HACK: Move the origin of the muons to the top of the cavern
 # =========================================================
-process.VtxSmeared = cms.EDProducer("FlatEvtVtxGenerator",
-    MinX = cms.double(-500.0), # Transversal area: 10 meters 
+process.VtxSmeared = cms.EDProducer("MultiVtxFlatEvtVtxGenerator",
+    MinX = cms.double(-500.0), # Transversal area: 10 meters
     MaxX = cms.double(500.0),
     MinY = cms.double(800.0),  # Origin at 8 meter height (on top of the detector)
     MaxY = cms.double(800.0),
-    MinZ = cms.double(-600.0), # Longitudinal length: 12 meters 
+    MinZ = cms.double(-600.0), # Longitudinal length: 12 meters
     MaxZ = cms.double(600.0),
     MinT = cms.double(0.0),
     MaxT = cms.double(0.0),
-    TimeOffset = cms.double(0.0),
+    # TimeOffset = cms.double(0.0), # TimeOffset is not read in MultiVtxFlatEvtGenerator, only original VtxFlatEvtGenerator
     src = cms.InputTag("generator", "unsmeared")
 )
 ```
