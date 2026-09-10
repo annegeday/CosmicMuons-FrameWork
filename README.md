@@ -100,7 +100,8 @@ Contains files related to generation of Ntuples from AOD files.
   + Only accepts data that contains all neccessary segment+hit info. Therefore does not accept cosmic files in RECO format directly from DAS.
   + Configuration options
     - inputPath: Path to AOD data file in string format (Don't forget file: for a local file)
-  + Outputs ntuples.root in working directory 
+  + Outputs ntuples.root in working directory
+  + Run with `cmsRun Cosmics_runNtuplizer_AOD_cfg.py`
 * condor/
   + Cosmics_runNtuplizer_AOD_cfg.py
     - Version of the Ntuplizer for condor (feeds from plugin/MuonNtupleProducer just like the non-condor Ntuplizer)
@@ -217,33 +218,24 @@ Instructions for cosmic multi-muons:
 ### Including segment and hit info in data files
 It turns out that, by default, CMS saves muon segments in AOD for pp collision runs, but not for cosmics. One has to add them here: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py#L5. Benchmark from pp cfg: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuon_EventContent_cff.py#L7-L13.
 
-The script to produce customized AOD (with muon segments + DT/CSC hist info kept) from RAW data, is located in the 
+The script to produce customized AOD (with muon segments + DT/CSC hist info kept) from RAW data, is located in the DataSegment_AOD/ directory. See [here](#DataSegment_AOD/)
 
+Crab is the best solution for running this type of task. Submit jobs to crab taking /Cosmics/Commissioning2025-v1/RAW as the input dataset:
+
+     crab submit  crab_CosmicPPreco.py
+
+The first version of the CosmicPPreco_RAW2DIgi_RECO.py script was generated in the following way: 
 
     git cms-addpkg RecoLocalMuon/Configuration
     <Edit RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py>
     scram b -j 20
     cmsDriver.py CosmicPPreco --step RAW2DIGI,RECO --datatier AOD --eventcontent AOD --filein=/store/data/Run2024C/Cosmics/RAW/v1/000/379/417/00000/022b1b63-e126-4800-be9a-cbd752664a95.root --fileout file:CosmicPPreco_RAW2DIGI_RECO.root --conditions 140X_dataRun3_Prompt_v2 --era Run3 --scenario cosmics --data -n 100
 
-Crab is the best solution for running this type of task. Submit jobs to crab taking /Cosmics/Commissioning2025-v1/RAW as the input dataset:
-
-     crab submit  crab_CosmicPPreco.py
-
 
 ### Producing Ntuples
 The framework will produce Ntuples from AOD. Every time you make a change anywhere, for instance in 'plugins/MuonNtupleProducer.cc', do not forget to re-compile (run 'scram b -j 8' in 'CMSSW_15_0_5/src').
-The current version of the 
-
-    cd CosmicMuons-FrameWork/Ntuplizer/test/
-        
-    # Find an input AOD file and use it on process.source in 'Cosmics_runNtuplizer_AOD_cfg.py':
-    # Use DAS to get the paths: https://cmsweb.cern.ch/das/request?view=list&limit=50&instance=prod%2Fglobal&input=dataset%3D%2F*Cosmics*%2FRun*2025*%2FAOD
-    # One can either give the path of any of them, i.e., fileNames = cms.untracked.vstring('/store/data/Commissioning2025/Cosmics/AOD/PromptReco-v1/000/389/353/00000/896a0637-7186-4d8e-8af5-b11e22c90ea4.root')
-    # or copy it in local 'xrdcp root://cms-xrd-global.cern.ch//store/data/Commissioning2025/Cosmics/AOD/PromptReco-v1/000/389/353/00000/896a0637-7186-4d8e-8af5-b11e22c90ea4.root ./'
-    # and then point to it: 'fileNames = cms.untracked.vstring('file:896a0637-7186-4d8e-8af5-b11e22c90ea4.root')'. The latter option should be faster for testing purposes.
-    
-    cmsRun Cosmics_runNtuplizer_AOD_cfg.py
-
+The current version of the Ntuplizer will only accept input files that contain info about segments and hits. This could be accounted for in the same way as has been done for GenParticles. If the input AOD files are simulated, the Ntuplizer will keep info about the generated particles. 
+Instructions can be found in the [section describing the Ntuplizer directory](#Ntuplizer/).
 
 ### Simulation studies
 
