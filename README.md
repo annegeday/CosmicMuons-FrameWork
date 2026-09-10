@@ -117,8 +117,13 @@ Contains files related to generation of Ntuples from AOD files.
       * Configuration options: .txt file path
   + sim_input/
     - run.sh
+      * Shell script to access grid proxy, find condor working directory and start Ntuplizer, then run matching script when finished.
+      * Paths to working directories 
     - condor.sub
+      * Submits the condor job following the shell script when called ´condor_submit condor.sub´
+      * Configuration options: .txt file path
     - nMuons_lineSep.txt
+      * Simply a txt document with number of muons that should be generated per run. One integer per line.
 
 ### Patch_References/
 Contains read-only copies of the files modified/added by `CosmicMuons.patch`. These are just included for convenience so the changes can be browsed easily without applying the patch, but the framework has no direct dependence on these copies. 
@@ -137,13 +142,25 @@ Contains read-only copies of the files modified/added by `CosmicMuons.patch`. Th
    
 ## Tips&tricks
 
-### Submit jobs to HTCondor (needs edits) 
+### Submit jobs to HTCondor
+There are scripts to submit the different jobs to HTCondor. For each run, condor.sub will submit one job per row of an appropriate txt file to the cluster, taking run.sh as the executable.
+Condor jobs can not be submitted from an eos/ path, therefore you must copy the files you need (run.sh, condor.sub & .txt-file) to your afs/ directory, and submit from there. You must also edit the files to ensure all paths point to your personal working directories. 
+If you are accessing data, you must also ensure that X509_USER_PROXY points to a valid grid proxy. 
+Finally submit the job with:
 
+    condor_submit condor.sub
+
+To check on the status of your jobs, type: 
+
+    condor_q
+    
+or, for more detail, find the relevant job ID and run:
+
+    condor_q -better-analyze <job_id>
+
+#### Example: Submit Ntuplizer job for a full dataset
 Before running the following commands, set your personal path in run.sh and select the input datasets and output path in prepare_files.py.
-
 prepare_files.py will produce a txt file where each row will contain a pair input_file output_file. 
-
-condor.sub will submit one job per row to the cluster, taking run.sh as the executable.
 
     cd condor
     voms-proxy-init --voms cms --hours 96  -out ${HOME}/.x509up_${UID};export X509_USER_PROXY=${HOME}/.x509up_${UID}
@@ -154,20 +171,28 @@ Merge the outputs with hadd. Example:
 
     hadd /eos/cms/store/group/phys_muon/fernanpe/Cosmics2025/merged.root /eos/cms/store/group/phys_muon/fernanpe/Cosmics2025/*/*root
     
-### Submit jobs to crab (needs edits)
-The following instructions will allow to submit jobs to the cluster for an entire dataset like '/Cosmics/Run2025A-PromptReco-v1/AOD'. The output ntuples can be stored in your '/eos/user/' area if T3_CH_CERNBOX is set as storage site (see crab_CosmicsData_2025A_AOD.py).
+### Submit jobs to crab
+The following instructions will allow to submit large jobs to the cluster by making a local copy of your CMSSW area. For example, it can take a full dataset. 
+This option is also useful when the dataset is no longer available on disk, as crab will request a copy on disk automatically before starting running the jobs.
+
+The output can be stored in your '/eos/user/' area if T3_CH_CERNBOX is set as storage site.
+
+
+#### Example: Generate AOD files for a full raw data set.
+Edit crab_CosmicPPreco.py to point to the desired input data set and correct output path. 
+Ensure that a sufficient amount of cores and memory is allocated for the job, as this is difficult to solve later (For the Commissiong2025 set, 3 cores were needed).
+Finally, submit the job:
 
     source /cvmfs/cms.cern.ch/crab3/crab.sh
     cmsenv
     voms-proxy-init --voms cms --valid 168:00
-    crab submit crab_Commissioning2025.py
-
-This option is useful when the dataset is no longer available on disk, as crab will request a copy on disk automatically before starting running the jobs.
+    crab submit crab_CosmicPPreco.py
 
 
-### Event displays with Fireworks (accept miniAOD/AOD/RECO formats as input)
+### Event displays with Fireworks
+Use Fireworks to generate event displays (accepts miniAOD/AOD/RECO formats as input).
 
-Use edmPickEvents.py to filter out events from a full data set, if needed (see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookPickEvents).
+You can use edmPickEvents.py to filter out events from a full data set, if needed (see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookPickEvents).
 
 Copy the output to a public /eos/cms/store/group/ path. There is also the possibility to read files from your /eos/user/ private path. Follow the instructions here: https://github.com/alja/FireworksWeb/blob/main/doc/UserGuide.md
 
@@ -189,17 +214,18 @@ Instructions for cosmic multi-muons:
 
 ## Considerations during framework developement process 
 
-### Including segment info in data files
+### Including segment and hit info in data files
 It turns out that, by default, CMS saves muon segments in AOD for pp collision runs, but not for cosmics. One has to add them here: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py#L5. Benchmark from pp cfg: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuon_EventContent_cff.py#L7-L13.
 
-Follow these instructions to produce customized AOD (with muon segments in) from RAW data:
-na
+The script to produce customized AOD (with muon segments + DT/CSC hist info kept) from RAW data, is located in the 
+
+
     git cms-addpkg RecoLocalMuon/Configuration
-    Edit RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py
+    <Edit RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py>
     scram b -j 20
     cmsDriver.py CosmicPPreco --step RAW2DIGI,RECO --datatier AOD --eventcontent AOD --filein=/store/data/Run2024C/Cosmics/RAW/v1/000/379/417/00000/022b1b63-e126-4800-be9a-cbd752664a95.root --fileout file:CosmicPPreco_RAW2DIGI_RECO.root --conditions 140X_dataRun3_Prompt_v2 --era Run3 --scenario cosmics --data -n 100
 
-Finally, submit jobs to crab taking /Cosmics/Commissioning2025-v1/RAW as the input dataset:
+Crab is the best solution for running this type of task. Submit jobs to crab taking /Cosmics/Commissioning2025-v1/RAW as the input dataset:
 
      crab submit  crab_CosmicPPreco.py
 
