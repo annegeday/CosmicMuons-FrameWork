@@ -218,7 +218,7 @@ Instructions for cosmic multi-muons:
 ### Including segment and hit info in data files
 It turns out that, by default, CMS saves muon segments in AOD for pp collision runs, but not for cosmics. One has to add them here: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py#L5. Benchmark from pp cfg: https://github.com/cms-sw/cmssw/blob/master/RecoLocalMuon/Configuration/python/RecoLocalMuon_EventContent_cff.py#L7-L13.
 
-The script to produce customized AOD (with muon segments + DT/CSC hist info kept) from RAW data, is located in the DataSegment_AOD/ directory. See [here](#DataSegment_AOD/)
+The script to produce customized AOD (with muon segments + DT/CSC hist info kept) from RAW data, is located in the DataSegment_AOD/ directory. See [here](#DataSegment_AOD)
 
 Crab is the best solution for running this type of task. Submit jobs to crab taking /Cosmics/Commissioning2025-v1/RAW as the input dataset:
 
@@ -235,15 +235,19 @@ The first version of the CosmicPPreco_RAW2DIgi_RECO.py script was generated in t
 ### Producing Ntuples
 The framework will produce Ntuples from AOD. Every time you make a change anywhere, for instance in 'plugins/MuonNtupleProducer.cc', do not forget to re-compile (run 'scram b -j 8' in 'CMSSW_15_0_5/src').
 The current version of the Ntuplizer will only accept input files that contain info about segments and hits. This could be accounted for in the same way as has been done for GenParticles. If the input AOD files are simulated, the Ntuplizer will keep info about the generated particles. 
-Instructions can be found in the [section describing the Ntuplizer directory](#Ntuplizer/).
+Instructions can be found in the [section describing the Ntuplizer directory](#Ntuplizer) .
 
 ### Simulation studies
 
-We will make use of the `FlatRandomPtGunProducer` to generate guns of cosmic muons. It is designed to simulate collisions, meaning it generates particles exactly at the center of the detector (0,0,0) and fires them outwards. If one uses the module as is, the muons will be born at the center. Half will go upwards (passing only through the top half) and half downwards (passing only through the bottom half). To get them to completely pass through the detector from top to bottom, simulating cosmic rays, we have to trick CMSSW by doing two things: 
+We will make use of the `FlatRandomPtGunProducer` to generate guns of cosmic muons. It is designed to simulate collisions, meaning it generates particles exactly at the center of the detector (0,0,0) and fires them outwards. If one uses the module as is, the muons will be born at the center. Half will go upwards (passing only through the top half) and half downwards (passing only through the bottom half). To get them to completely pass through the detector from top to bottom, simulating cosmic rays, we have tricked CMSSW by doing a couple of things: 
 
-1. Restricting the angles so that the "Gun" only fires downwards.
+1. Restricting the angles of each event so that the "Gun" only fires downwards.
+2. Assign an overall shower angle to each event by drawing from an appropriate distribution 
+3. Generate one vertex per muon
+4. Move each collision vertex individually to the top of the detector cavern, and a assign a specific angle from a small range around the shower.
 
-2. Move the collision vertex to the top of the detector cavern.
+The above 4 modifications are described in some (but not all) detail below.
+To include these changes, modifications and addition were made to the CMSSW pre-defined packages. These are all included in the CosmicMuons patch. 
 
 #### 1. The Generator: Firing Downwards.
 
