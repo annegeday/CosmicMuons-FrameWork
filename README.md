@@ -337,9 +337,9 @@ process.VtxSmeared = cms.EDProducer("MultiVtxFlatEvtVtxGenerator",
 )
 ```
 
-Finally, run it:
+Finally, after all these implementations, we can run the generator, ex:
 
-     cmsRun MultiCosmicGun_GEN_SIM_cfg.py
+     cmsRun MultiCosmicGun_GEN_SIM_cfg.py nMuons=4
 
 The output file should contain GEN-SIM information. You can check out the event content by running:
 
@@ -348,28 +348,8 @@ The output file should contain GEN-SIM information. You can check out the event 
 #### 3. Produce AOD
 
 The last step consists of running the GEN-SIM -> AOD step, so that we have the same data format as in data, but including information from the generated particles.
-
-     cmsDriver.py step2      --filein file:GEN-SIM_MultiCosmic.root      --fileout file:AODSIM.root      --mc      --eventcontent AOD      --datatier AOD      --conditions auto:phase1_2025_cosmics      --scenario cosmics      --step DIGI,L1,DIGI2RAW,HLT,RAW2DIGI,L1Reco,RECO,RECOSIM      --geometry DB:Extended      --era Run3      -n -1      --python_filename GEN_SIM_to_AOD_cfg.py      --no_exec
-
-Unfortunately, there is not a dedicated `--condition` for Run3 cosmics MC so far. The cmsDriver command above takes the conditions from data, so a couple of modifitions are needed to ensure that the generated information is stored in the AOD output.
-
-First, comment out the following line in `GEN_SIM_to_AOD_cfg.py`: `'drop *_genParticles_*_*',`.
-
-Second, add these lines in `RecoLocalMuonAOD` within `RecoLocalMuon/Configuration/python/RecoLocalMuonCosmics_EventContent_cff.py` as done in section "Including muon segments and hits in AOD"
-
-```
-'keep *_genParticles_*_*',
-'keep *_generator_*_*',
-'keep *_g4SimHits_Muon*_*',
-```
-
+Unfortunately, there is not a dedicated `--condition` to do this step for Run3 cosmics MC so far, so the file GEN_SIM_to_AOD_cfg.py is based on the conditions from data, and modified to ensure that the generated information is stored in the AOD output.
 By doing this, the generated particle kinematics, generator information, and the simulated muon hits will be stored in the AOD output.
 
-Compile from CMSSW_X_Y/src and run:
-
-     scram b -j 20
-     cmsRun GEN_SIM_to_AOD_cfg.py
-
-Now one can feed FireWorks with the AOD output file, make the flat ntuples, etc. 
-
-Note that some modifications will be needed to include the generated particles truth information in the flat ntuples, i.e., read the `genParticles` collection, loop over the elements, store in new output branches the kinematic information from the muons. This is a good exercise for homework. In case it helps, I used to read that collection in the past for another project. The code logic behind is different as I was geometrically matching gen and reco muons, but some parts of the code can be taken as a benchmark: https://github.com/fmanteca/HighPt_DNN/tree/master/MyAnalysis/RECOAnalysis
+Running a GEN-SIM file through GEN_SIM_to_AOD_cfg.py thus makes simulated data look like real data, but containing the "truth" about injected/generated muons. 
+Meaning one can now feed FireWorks with the AOD output file, make the flat ntuples, etc. 
