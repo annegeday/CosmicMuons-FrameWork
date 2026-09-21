@@ -1,8 +1,7 @@
 # Cosmics Muons Ntupler + Simulation Framework
-September 9th: README currently being updated and restructured 
+Last README update: September 21st, 2026
 
 ## Instructions for installing
-*The patch has yet to be verified. Full installation (cloning+patches) should be tested from a new working area.*
 
 ### Installing CMSSW
 
@@ -11,11 +10,6 @@ September 9th: README currently being updated and restructured
     cmsenv
 
 ### Setting up the framework
-From CMSSW_15_0_5/src, run: 
-
-    git clone git@github.com:fmanteca/CosmicMuons-FrameWork.git
-    scram b -j 8
-
 To run the framework, we need to include the corresponding additions/modifications of certain CMSSW packages, which are saved as a patch in this repository. From CMSSW_15_0_5/src, run:
 
     git cms-addpkg IOMC/ParticleGuns
@@ -23,8 +17,14 @@ To run the framework, we need to include the corresponding additions/modificatio
     git cms-addpkg Configuration/Generator
     git cms-addpkg RecoLocalMuon/Configuration
 
+Now we can clone the framework and apply the patch. From CMSSW_15_0_5/src, run: 
+
+    git clone git@github.com:fmanteca/CosmicMuons-FrameWork.git
     git apply CosmicMuons-FrameWork/CosmicMuons.patch
+    
     scram b -j 8
+
+Now the framework is ready to run as described below. 
 
 ## Overview : Directory structure and file descriptions
 
